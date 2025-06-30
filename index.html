@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Oluseyi Noah Adebanjo - Digital Archivist & Public Historian</title>
+    <title>Oluseyi Noah Adebanjo - Childhood Historian & Digital Archivist</title>
     <style>
         * {
             margin: 0;
@@ -274,6 +274,50 @@
             font-weight: 300;
         }
 
+        /* Animated Text Sections */
+        .animated-section {
+            margin: 30px 0;
+            text-align: center;
+        }
+
+        .animated-section h3 {
+            font-size: 1.2rem;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 10px;
+            font-weight: 400;
+        }
+
+        .typewriter {
+            font-size: 1.3rem;
+            font-weight: 600;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .typewriter-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .cursor {
+            display: inline-block;
+            background-color: #667eea;
+            margin-left: 3px;
+            width: 2px;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
         .description {
             max-width: 900px;
             margin: 0 auto 50px;
@@ -536,6 +580,107 @@
             margin-bottom: 15px;
         }
 
+        /* Skills Grid */
+        .skills-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .skill-category {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 25px;
+            border-radius: 15px;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .skill-category:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateY(-5px);
+        }
+
+        .skill-category h4 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        .skill-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .skill-tag {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2));
+            color: rgba(255, 255, 255, 0.9);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .skill-tag:hover {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.4), rgba(118, 75, 162, 0.4));
+            transform: translateY(-2px);
+        }
+
+        /* Awards Grid */
+        .awards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-top: 30px;
+        }
+
+        .award-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 25px;
+            border-radius: 15px;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .award-item::before {
+            content: '🏆';
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 1.5rem;
+            opacity: 0.7;
+        }
+
+        .award-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(102, 126, 234, 0.2);
+        }
+
+        .award-title {
+            color: #f093fb;
+            font-weight: 600;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        .award-org {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+        }
+
+        .award-year {
+            color: #667eea;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             nav ul {
@@ -561,7 +706,7 @@
                 padding: 100px 15px 40px;
             }
             
-            .card-grid {
+            .card-grid, .skills-grid, .awards-grid {
                 grid-template-columns: 1fr;
             }
             
@@ -619,10 +764,37 @@
             </div>
             
             <h1 class="name">Oluseyi Noah Adebanjo</h1>
-            <p class="title">Digital Archivist & Public Historian</p>
+            <p class="title">Childhood Historian & Digital Archivist</p>
+            
+            <!-- Animated Interested In Section -->
+            <div class="animated-section">
+                <h3>Interested in</h3>
+                <div class="typewriter">
+                    <span class="typewriter-text" id="interested-text"></span>
+                    <span class="cursor">&nbsp;</span>
+                </div>
+            </div>
+
+            <!-- Animated Skills Section -->
+            <div class="animated-section">
+                <h3>Specialized in</h3>
+                <div class="typewriter">
+                    <span class="typewriter-text" id="skills-text"></span>
+                    <span class="cursor">&nbsp;</span>
+                </div>
+            </div>
+
+            <!-- Animated Awards Section -->
+            <div class="animated-section">
+                <h3>Recent Recognition</h3>
+                <div class="typewriter">
+                    <span class="typewriter-text" id="awards-text"></span>
+                    <span class="cursor">&nbsp;</span>
+                </div>
+            </div>
             
             <div class="description">
-                Master's student in Public History at University of Arkansas at Little Rock, specializing in digital archiving and AI applications in historical preservation. Passionate about leveraging emerging technologies to preserve and make accessible underrepresented historical narratives.
+                Master's student in Public History at University of Arkansas at Little Rock, specializing in childhood history and digital archiving. Passionate about leveraging AI and emerging technologies to preserve and make accessible underrepresented historical narratives, particularly focusing on children's experiences and family histories.
             </div>
             
             <div class="social-links">
@@ -663,6 +835,18 @@
                 <p>Multimedia AI chatbot using Python libraries to integrate audio, text, and video. Revolutionizes user engagement with folk singer Phil Ochs' legacy.</p>
                 <p><strong>Status:</strong> In Development</p>
             </div>
+
+            <div class="card">
+                <h3>Silent Witnesses Research</h3>
+                <p>Investigating the role of Nigerian newspapers in missing children cases (1960-2000). Uncovering historical patterns and media representation of childhood vulnerabilities.</p>
+                <p><strong>Focus:</strong> Children's History, Media Analysis</p>
+            </div>
+
+            <div class="card">
+                <h3>Hugh Baskin Patterson Digital Exhibit</h3>
+                <p>Created a comprehensive character collection web exhibit using CAHC materials, showcasing research and digital storytelling skills in public history.</p>
+                <p><a href="https://ualrexhibits.org/characters/hugh-patterson/" target="_blank">View Exhibit</a></p>
+            </div>
         </div>
     </section>
 
@@ -672,161 +856,4 @@
         
         <div class="card-grid">
             <div class="card">
-                <h3>Conference Presentations</h3>
-                <ul>
-                    <li><strong>ArchivAI Revolution: Blockchain, AI and ML for Digital Preservation</strong> - Society of American Archivists Conference, Chicago (2024)</li>
-                    <li><strong>ArchivAI Revolution: Pioneering the fusion of Blockchain, AI and ML for Digital Preservation</strong> - IPRES International Conference (2025)</li>
-                </ul>
-            </div>
-            
-            <div class="card">
-                <h3>Publications</h3>
-                <ul>
-                    <li><strong>The Interdisciplinary Archivist in the Era of Generative AI</strong> - SAA Archival Outlook (2025)</li>
-                    <li><strong>Between Childhood and Conflict: The Vietnamese Refugee Child Experience in Arkansas</strong> - Digital Childhoods, Society for the History of Children and Youth (2025)</li>
-                    <li><strong>Child Labor in Arkansas</strong> - Encyclopedia of Arkansas (Under Review)</li>
-                </ul>
-            </div>
-            
-            <div class="card">
-                <h3>Digital Exhibits</h3>
-                <ul>
-                    <li><strong>Hugh Baskin Patterson</strong> - Center for Arkansas History and Culture (2025)</li>
-                </ul>
-            </div>
-        </div>
-    </section>
-
-    <!-- EXPERIENCE SECTION -->
-    <section id="experience" class="section">
-        <h1>Experience</h1>
-        
-        <div class="timeline">
-            <div class="timeline-item">
-                <div class="timeline-content">
-                    <div class="timeline-date">May 2025 - August 2025</div>
-                    <div class="timeline-title">Digital Collections Intern</div>
-                    <div class="timeline-org">Rock and Roll Hall of Fame</div>
-                    <p>Implementing AI-powered metadata enhancement solutions and managing cross-platform database integration for one of the world's premier music archives.</p>
-                </div>
-            </div>
-            
-            <div class="timeline-item">
-                <div class="timeline-content">
-                    <div class="timeline-date">May 2025 - June 2026</div>
-                    <div class="timeline-title">Inaugural Editorial Fellow</div>
-                    <div class="timeline-org">Sharing Stories from 1977, University of Houston</div>
-                    <p>Selected as one of twelve graduate fellows nationwide to contribute to a digital public history project on the 1977 National Women's Conference.</p>
-                </div>
-            </div>
-            
-            <div class="timeline-item">
-                <div class="timeline-content">
-                    <div class="timeline-date">January 2025 - May 2025</div>
-                    <div class="timeline-title">Fellow</div>
-                    <div class="timeline-org">William J. Clinton Presidential Library and Museum</div>
-                    <p>Processed presidential records for FOIA requests, managed electronic records, created metadata, and assisted with digitization projects.</p>
-                </div>
-            </div>
-            
-            <div class="timeline-item">
-                <div class="timeline-content">
-                    <div class="timeline-date">January 2024 - Present</div>
-                    <div class="timeline-title">Graduate Assistant</div>
-                    <div class="timeline-org">Center for Arkansas History and Culture</div>
-                    <p>Developed web exhibits, processed archival collections, assisted patrons with research, and participated in digital archiving initiatives.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- CONTACT SECTION -->
-    <section id="contact" class="section">
-        <h1>Contact</h1>
-        
-        <div class="contact-grid">
-            <div class="contact-item">
-                <h3>Email</h3>
-                <p>onadebanjo@ualr.edu</p>
-                <p>Adebanjo.oluseyi98@gmail.com</p>
-            </div>
-            
-            <div class="contact-item">
-                <h3>Location</h3>
-                <p>Little Rock, AR 72204</p>
-            </div>
-            
-            <div class="contact-item">
-                <h3>Academic</h3>
-                <p>University of Arkansas at Little Rock</p>
-                <p>Master of Public History (2026)</p>
-                <p>GPA: 3.87</p>
-            </div>
-        </div>
-    </section>
-
-    <script>
-        // Navigation functionality
-        document.addEventListener('DOMContentLoaded', function() {
-            const navLinks = document.querySelectorAll('.nav-link');
-            const sections = document.querySelectorAll('.section');
-            
-            navLinks.forEach(link => {
-                link.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    
-                    // Remove active class from all links and sections
-                    navLinks.forEach(l => l.classList.remove('active'));
-                    sections.forEach(s => s.classList.remove('active'));
-                    
-                    // Add active class to clicked link
-                    this.classList.add('active');
-                    
-                    // Show corresponding section
-                    const targetSection = document.querySelector(this.getAttribute('href'));
-                    if (targetSection) {
-                        targetSection.classList.add('active');
-                    }
-                });
-            });
-
-            // Parallax effect for particles
-            window.addEventListener('mousemove', function(e) {
-                const particles = document.querySelectorAll('.particle');
-                const x = e.clientX / window.innerWidth;
-                const y = e.clientY / window.innerHeight;
-                
-                particles.forEach((particle, index) => {
-                    const speed = (index + 1) * 0.5;
-                    const moveX = (x - 0.5) * speed * 20;
-                    const moveY = (y - 0.5) * speed * 20;
-                    particle.style.transform += ` translate(${moveX}px, ${moveY}px)`;
-                });
-            });
-
-            // Add scroll animations
-            const observerOptions = {
-                threshold: 0.1,
-                rootMargin: '0px 0px -50px 0px'
-            };
-
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        entry.target.style.opacity = '1';
-                        entry.target.style.transform = 'translateY(0)';
-                    }
-                });
-            }, observerOptions);
-
-            // Observe cards and timeline items
-            document.querySelectorAll('.card, .timeline-item, .contact-item').forEach(el => {
-                el.style.opacity = '0';
-                el.style.transform = 'translateY(20px)';
-                el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
-                observer.observe(el);
-            });
-        });
-    </script>
-</body>
-</html>
+                <h3>Conference Presentations
