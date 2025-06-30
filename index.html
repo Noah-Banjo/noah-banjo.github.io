@@ -108,6 +108,7 @@
             z-index: 1000;
             backdrop-filter: blur(20px);
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            height: 80px;
         }
 
         nav ul {
@@ -153,14 +154,18 @@
             box-shadow: 0 10px 25px rgba(102, 126, 234, 0.2);
         }
 
-        /* Sections */
+        /* Sections - FIXED POSITIONING */
         .section {
-            padding: 80px 20px 60px;
+            position: fixed;
+            top: 80px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 40px 20px;
             max-width: 1200px;
             margin: 0 auto;
             display: none;
-            position: relative;
-            min-height: calc(100vh - 80px);
+            overflow-y: auto;
         }
 
         .section.active {
@@ -192,19 +197,19 @@
             padding-top: 20px;
         }
 
-        /* Home Section */
+        /* Home Section - CENTERED */
         #home {
-            display: block;
-            text-align: center;
-            padding-top: 100px;
-            min-height: 100vh;
             display: flex;
             flex-direction: column;
             justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
         }
 
         .profile-container {
             margin-bottom: 60px;
+            max-width: 100%;
         }
 
         .profile-image {
@@ -707,7 +712,7 @@
             }
             
             .section {
-                padding: 100px 15px 40px;
+                padding: 20px 15px;
             }
             
             .card-grid, .skills-grid, .awards-grid {
@@ -1175,7 +1180,7 @@
             setTimeout(typeWriter, typeSpeed);
         }
 
-        // Navigation function
+        // Navigation function - FIXED POSITIONING
         function showSection(sectionId) {
             // Remove active class from all sections
             const sections = document.querySelectorAll('.section');
@@ -1193,8 +1198,6 @@
             const targetSection = document.getElementById(sectionId);
             if (targetSection) {
                 targetSection.classList.add('active');
-                // Immediately scroll to top to show content right under navigation
-                window.scrollTo(0, 0);
             }
 
             // Add active class to corresponding nav link
