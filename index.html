@@ -108,7 +108,6 @@
             z-index: 1000;
             backdrop-filter: blur(20px);
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            height: 80px;
         }
 
         nav ul {
@@ -154,18 +153,14 @@
             box-shadow: 0 10px 25px rgba(102, 126, 234, 0.2);
         }
 
-        /* Sections - FIXED POSITIONING */
+        /* Sections */
         .section {
-            position: fixed;
-            top: 80px;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            padding: 40px 20px;
+            padding: 120px 20px 60px;
             max-width: 1200px;
             margin: 0 auto;
             display: none;
-            overflow-y: auto;
+            position: relative;
+            min-height: calc(100vh - 80px);
         }
 
         .section.active {
@@ -193,23 +188,21 @@
             -webkit-text-fill-color: transparent;
             background-clip: text;
             position: relative;
-            margin-top: 0;
-            padding-top: 20px;
         }
 
-        /* Home Section - CENTERED */
+        /* Home Section */
         #home {
+            display: block;
+            text-align: center;
+            padding-top: 140px;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            align-items: center;
-            text-align: center;
-            padding: 20px;
         }
 
         .profile-container {
             margin-bottom: 60px;
-            max-width: 100%;
         }
 
         .profile-image {
@@ -712,7 +705,7 @@
             }
             
             .section {
-                padding: 20px 15px;
+                padding: 100px 15px 40px;
             }
             
             .card-grid, .skills-grid, .awards-grid {
@@ -1180,7 +1173,7 @@
             setTimeout(typeWriter, typeSpeed);
         }
 
-        // Navigation function - FIXED POSITIONING
+        // SIMPLE Navigation function - ONLY change is scroll to top
         function showSection(sectionId) {
             // Remove active class from all sections
             const sections = document.querySelectorAll('.section');
@@ -1198,6 +1191,8 @@
             const targetSection = document.getElementById(sectionId);
             if (targetSection) {
                 targetSection.classList.add('active');
+                // ONLY CHANGE: Scroll to top immediately
+                window.scrollTo(0, 0);
             }
 
             // Add active class to corresponding nav link
