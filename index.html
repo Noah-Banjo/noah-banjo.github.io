@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,6 +9,10 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
         }
 
         body {
@@ -98,7 +102,7 @@
         .particle:nth-child(7) { width: 6px; height: 6px; top: 30%; left: 30%; animation-delay: 1.5s; }
         .particle:nth-child(8) { width: 5px; height: 5px; top: 90%; left: 75%; animation-delay: 2.5s; }
 
-        /* Improved Navigation */
+        /* Fixed Navigation */
         nav {
             position: fixed;
             top: 0;
@@ -179,23 +183,8 @@
             max-width: 1200px;
             margin: 0 auto;
             position: relative;
-            min-height: calc(100vh - 80px);
-            scroll-margin-top: 80px; /* Account for fixed navbar */
-        }
-
-        .section.active {
-            animation: fadeInUp 0.6s ease-out;
-        }
-
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            min-height: 100vh;
+            scroll-margin-top: 80px;
         }
 
         .section h1 {
@@ -780,7 +769,7 @@
         <div class="particle"></div>
     </div>
 
-    <!-- Improved Navigation -->
+    <!-- Fixed Navigation -->
     <nav>
         <ul>
             <li><a href="#home" class="nav-link active">Home</a></li>
@@ -792,7 +781,7 @@
     </nav>
 
     <!-- HOME SECTION -->
-    <section id="home" class="section active">
+    <section id="home" class="section">
         <div class="profile-container">
             <div class="profile-image">
                 <img src="photo.jpg" alt="Oluseyi Noah Adebanjo">
@@ -1105,7 +1094,7 @@
         </div>
     </section>
 
-    <!-- Improved JavaScript -->
+    <!-- JavaScript -->
     <script>
         // Typewriter effect data
         const interestedItems = [
@@ -1207,19 +1196,20 @@
             setTimeout(typeWriter, typeSpeed);
         }
 
-        // Handle active nav link highlighting
+        // Handle active nav link highlighting based on scroll position
         function updateActiveNavLink() {
             const sections = document.querySelectorAll('.section');
             const navLinks = document.querySelectorAll('.nav-link');
             
             let currentSection = '';
+            const scrollPosition = window.scrollY + 100; // Offset for fixed navbar
             
             // Check which section is currently in view
             sections.forEach(section => {
-                const rect = section.getBoundingClientRect();
-                const isVisible = rect.top <= 100 && rect.bottom >= 100;
+                const offsetTop = section.offsetTop;
+                const offsetHeight = section.offsetHeight;
                 
-                if (isVisible) {
+                if (scrollPosition >= offsetTop && scrollPosition < offsetTop + offsetHeight) {
                     currentSection = section.id;
                 }
             });
