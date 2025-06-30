@@ -98,37 +98,49 @@
         .particle:nth-child(7) { width: 6px; height: 6px; top: 30%; left: 30%; animation-delay: 1.5s; }
         .particle:nth-child(8) { width: 5px; height: 5px; top: 90%; left: 75%; animation-delay: 2.5s; }
 
-        /* Navigation */
+        /* Improved Navigation */
         nav {
             position: fixed;
             top: 0;
             width: 100%;
-            background: rgba(10, 10, 15, 0.9);
-            padding: 20px 0;
+            background: rgba(10, 10, 15, 0.95);
+            padding: 15px 0;
             z-index: 1000;
             backdrop-filter: blur(20px);
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
         }
 
         nav ul {
             list-style: none;
             display: flex;
             justify-content: center;
-            gap: 40px;
+            align-items: center;
+            gap: 30px;
             margin: 0;
             padding: 0;
+            flex-wrap: wrap;
+        }
+
+        nav li {
+            margin: 0;
         }
 
         nav a {
             color: rgba(255, 255, 255, 0.8);
             text-decoration: none;
-            padding: 12px 24px;
-            border-radius: 30px;
+            padding: 12px 20px;
+            border-radius: 25px;
             transition: all 0.3s ease;
             font-weight: 500;
+            font-size: 0.95rem;
             position: relative;
             overflow: hidden;
             cursor: pointer;
+            display: block;
+            min-width: 80px;
+            text-align: center;
+            border: 1px solid transparent;
         }
 
         nav a::before {
@@ -138,7 +150,7 @@
             left: -100%;
             width: 100%;
             height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
             transition: left 0.6s;
         }
 
@@ -146,16 +158,24 @@
             left: 100%;
         }
 
-        nav a:hover, nav a.active {
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.3), rgba(118, 75, 162, 0.3));
+        nav a:hover {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2));
             color: white;
             transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.2);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+            border-color: rgba(102, 126, 234, 0.5);
+        }
+
+        nav a.active {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.4), rgba(118, 75, 162, 0.4));
+            color: white;
+            border-color: rgba(102, 126, 234, 0.7);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
         }
 
         /* Sections */
         .section {
-            padding: 120px 20px 60px;
+            padding: 100px 20px 60px;
             max-width: 1200px;
             margin: 0 auto;
             display: none;
@@ -194,7 +214,7 @@
         #home {
             display: block;
             text-align: center;
-            padding-top: 140px;
+            padding-top: 120px;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
@@ -685,14 +705,19 @@
 
         /* Responsive */
         @media (max-width: 768px) {
+            nav {
+                padding: 10px 0;
+            }
+            
             nav ul {
-                flex-wrap: wrap;
-                gap: 20px;
+                gap: 15px;
+                padding: 0 10px;
             }
             
             nav a {
-                padding: 8px 16px;
+                padding: 10px 15px;
                 font-size: 0.9rem;
+                min-width: 70px;
             }
             
             .name {
@@ -705,7 +730,7 @@
             }
             
             .section {
-                padding: 100px 15px 40px;
+                padding: 90px 15px 40px;
             }
             
             .card-grid, .skills-grid, .awards-grid {
@@ -731,6 +756,16 @@
                 height: 60px;
                 font-size: 1.5rem;
             }
+
+            nav ul {
+                gap: 10px;
+            }
+
+            nav a {
+                padding: 8px 12px;
+                font-size: 0.85rem;
+                min-width: 60px;
+            }
         }
     </style>
 </head>
@@ -747,14 +782,14 @@
         <div class="particle"></div>
     </div>
 
-    <!-- Navigation -->
+    <!-- Improved Navigation -->
     <nav>
         <ul>
-            <li><a href="#home" class="nav-link active" onclick="showSection('home')">Home</a></li>
-            <li><a href="#projects" class="nav-link" onclick="showSection('projects')">Projects</a></li>
-            <li><a href="#publications" class="nav-link" onclick="showSection('publications')">Publications</a></li>
-            <li><a href="#experience" class="nav-link" onclick="showSection('experience')">Experience</a></li>
-            <li><a href="#contact" class="nav-link" onclick="showSection('contact')">Contact</a></li>
+            <li><a href="#home" class="nav-link active" data-section="home">Home</a></li>
+            <li><a href="#projects" class="nav-link" data-section="projects">Projects</a></li>
+            <li><a href="#publications" class="nav-link" data-section="publications">Publications</a></li>
+            <li><a href="#experience" class="nav-link" data-section="experience">Experience</a></li>
+            <li><a href="#contact" class="nav-link" data-section="contact">Contact</a></li>
         </ul>
     </nav>
 
@@ -1072,6 +1107,7 @@
         </div>
     </section>
 
+    <!-- Improved JavaScript -->
     <script>
         // Typewriter effect data
         const interestedItems = [
@@ -1173,8 +1209,10 @@
             setTimeout(typeWriter, typeSpeed);
         }
 
-        // SIMPLE Navigation function - ONLY change is scroll to top
+        // Improved Navigation function
         function showSection(sectionId) {
+            console.log('Switching to section:', sectionId);
+            
             // Remove active class from all sections
             const sections = document.querySelectorAll('.section');
             sections.forEach(section => {
@@ -1191,12 +1229,15 @@
             const targetSection = document.getElementById(sectionId);
             if (targetSection) {
                 targetSection.classList.add('active');
-                // ONLY CHANGE: Scroll to top immediately
-                window.scrollTo(0, 0);
+                // Smooth scroll to top
+                window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
             }
 
             // Add active class to corresponding nav link
-            const activeLink = document.querySelector(`a[href="#${sectionId}"]`);
+            const activeLink = document.querySelector(`[data-section="${sectionId}"]`);
             if (activeLink) {
                 activeLink.classList.add('active');
             }
@@ -1214,20 +1255,28 @@
 
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('Page loaded, initializing...');
+            console.log('Page loaded, initializing navigation...');
             
+            // Add click handlers to navigation - using event delegation
+            const nav = document.querySelector('nav ul');
+            if (nav) {
+                nav.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    // Find the clicked nav link
+                    const navLink = e.target.closest('.nav-link');
+                    if (navLink) {
+                        const sectionId = navLink.getAttribute('data-section');
+                        if (sectionId) {
+                            showSection(sectionId);
+                        }
+                    }
+                });
+            }
+
             // Start typewriter effect for home page
             typewriterRunning = true;
             setTimeout(typeWriter, 1000);
-
-            // Add click handlers to navigation
-            document.querySelectorAll('.nav-link').forEach(link => {
-                link.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    const sectionId = this.getAttribute('href').substring(1);
-                    showSection(sectionId);
-                });
-            });
 
             // Mouse parallax effect
             document.addEventListener('mousemove', function(e) {
@@ -1243,10 +1292,10 @@
                 });
             });
 
-            console.log('Initialization complete');
+            console.log('Navigation initialization complete');
         });
 
-        // Make showSection globally available
+        // Make showSection globally available for any external calls
         window.showSection = showSection;
     </script>
 </body>
