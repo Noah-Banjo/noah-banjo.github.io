@@ -178,13 +178,12 @@
             padding: 100px 20px 60px;
             max-width: 1200px;
             margin: 0 auto;
-            display: none;
             position: relative;
             min-height: calc(100vh - 80px);
+            scroll-margin-top: 80px; /* Account for fixed navbar */
         }
 
         .section.active {
-            display: block;
             animation: fadeInUp 0.6s ease-out;
         }
 
@@ -212,7 +211,6 @@
 
         /* Home Section */
         #home {
-            display: block;
             text-align: center;
             padding-top: 120px;
             min-height: 100vh;
@@ -785,11 +783,11 @@
     <!-- Improved Navigation -->
     <nav>
         <ul>
-            <li><a href="#home" class="nav-link active" data-section="home">Home</a></li>
-            <li><a href="#projects" class="nav-link" data-section="projects">Projects</a></li>
-            <li><a href="#publications" class="nav-link" data-section="publications">Publications</a></li>
-            <li><a href="#experience" class="nav-link" data-section="experience">Experience</a></li>
-            <li><a href="#contact" class="nav-link" data-section="contact">Contact</a></li>
+            <li><a href="#home" class="nav-link active">Home</a></li>
+            <li><a href="#projects" class="nav-link">Projects</a></li>
+            <li><a href="#publications" class="nav-link">Publications</a></li>
+            <li><a href="#experience" class="nav-link">Experience</a></li>
+            <li><a href="#contact" class="nav-link">Contact</a></li>
         </ul>
     </nav>
 
@@ -1209,41 +1207,33 @@
             setTimeout(typeWriter, typeSpeed);
         }
 
-        // Improved Navigation function
-        function showSection(sectionId) {
-            console.log('Switching to section:', sectionId);
-            
-            // Remove active class from all sections
+        // Handle active nav link highlighting
+        function updateActiveNavLink() {
             const sections = document.querySelectorAll('.section');
-            sections.forEach(section => {
-                section.classList.remove('active');
-            });
-
-            // Remove active class from all nav links
             const navLinks = document.querySelectorAll('.nav-link');
+            
+            let currentSection = '';
+            
+            // Check which section is currently in view
+            sections.forEach(section => {
+                const rect = section.getBoundingClientRect();
+                const isVisible = rect.top <= 100 && rect.bottom >= 100;
+                
+                if (isVisible) {
+                    currentSection = section.id;
+                }
+            });
+            
+            // Update active nav link
             navLinks.forEach(link => {
                 link.classList.remove('active');
+                if (link.getAttribute('href') === `#${currentSection}`) {
+                    link.classList.add('active');
+                }
             });
 
-            // Show target section
-            const targetSection = document.getElementById(sectionId);
-            if (targetSection) {
-                targetSection.classList.add('active');
-                // Smooth scroll to top
-                window.scrollTo({
-                    top: 0,
-                    behavior: 'smooth'
-                });
-            }
-
-            // Add active class to corresponding nav link
-            const activeLink = document.querySelector(`[data-section="${sectionId}"]`);
-            if (activeLink) {
-                activeLink.classList.add('active');
-            }
-
             // Control typewriter based on section
-            if (sectionId === 'home') {
+            if (currentSection === 'home') {
                 if (!typewriterRunning) {
                     typewriterRunning = true;
                     setTimeout(typeWriter, 500);
@@ -1257,26 +1247,15 @@
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Page loaded, initializing navigation...');
             
-            // Add click handlers to navigation - using event delegation
-            const nav = document.querySelector('nav ul');
-            if (nav) {
-                nav.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    
-                    // Find the clicked nav link
-                    const navLink = e.target.closest('.nav-link');
-                    if (navLink) {
-                        const sectionId = navLink.getAttribute('data-section');
-                        if (sectionId) {
-                            showSection(sectionId);
-                        }
-                    }
-                });
-            }
-
             // Start typewriter effect for home page
             typewriterRunning = true;
             setTimeout(typeWriter, 1000);
+
+            // Add scroll listener to update active nav links
+            window.addEventListener('scroll', updateActiveNavLink);
+            
+            // Initial call to set correct active link
+            updateActiveNavLink();
 
             // Mouse parallax effect
             document.addEventListener('mousemove', function(e) {
@@ -1294,9 +1273,6 @@
 
             console.log('Navigation initialization complete');
         });
-
-        // Make showSection globally available for any external calls
-        window.showSection = showSection;
     </script>
 </body>
 </html>
