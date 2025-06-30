@@ -155,11 +155,12 @@
 
         /* Sections */
         .section {
-            padding: 120px 20px 60px;
+            padding: 80px 20px 60px;
             max-width: 1200px;
             margin: 0 auto;
             display: none;
             position: relative;
+            min-height: calc(100vh - 80px);
         }
 
         .section.active {
@@ -187,13 +188,15 @@
             -webkit-text-fill-color: transparent;
             background-clip: text;
             position: relative;
+            margin-top: 0;
+            padding-top: 20px;
         }
 
         /* Home Section */
         #home {
             display: block;
             text-align: center;
-            padding-top: 140px;
+            padding-top: 100px;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
@@ -1190,6 +1193,8 @@
             const targetSection = document.getElementById(sectionId);
             if (targetSection) {
                 targetSection.classList.add('active');
+                // Immediately scroll to top to show content right under navigation
+                window.scrollTo(0, 0);
             }
 
             // Add active class to corresponding nav link
