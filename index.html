@@ -128,6 +128,7 @@
             font-weight: 500;
             position: relative;
             overflow: hidden;
+            cursor: pointer;
         }
 
         nav a::before {
@@ -748,11 +749,11 @@
     <!-- Navigation -->
     <nav>
         <ul>
-            <li><a href="#home" class="nav-link active">Home</a></li>
-            <li><a href="#projects" class="nav-link">Projects</a></li>
-            <li><a href="#publications" class="nav-link">Publications</a></li>
-            <li><a href="#experience" class="nav-link">Experience</a></li>
-            <li><a href="#contact" class="nav-link">Contact</a></li>
+            <li><a href="#home" class="nav-link active" onclick="showSection('home')">Home</a></li>
+            <li><a href="#projects" class="nav-link" onclick="showSection('projects')">Projects</a></li>
+            <li><a href="#publications" class="nav-link" onclick="showSection('publications')">Publications</a></li>
+            <li><a href="#experience" class="nav-link" onclick="showSection('experience')">Experience</a></li>
+            <li><a href="#contact" class="nav-link" onclick="showSection('contact')">Contact</a></li>
         </ul>
     </nav>
 
@@ -856,4 +857,394 @@
         
         <div class="card-grid">
             <div class="card">
-                <h3>Conference Presentations
+                <h3>Conference Presentations</h3>
+                <ul>
+                    <li><strong>ArchivAI Revolution: Blockchain, AI and ML for Digital Preservation</strong> - Society of American Archivists Conference, Chicago (2024)</li>
+                    <li><strong>ArchivAI Revolution: Pioneering the fusion of Blockchain, AI and ML for Digital Preservation</strong> - IPRES International Conference (2025)</li>
+                </ul>
+            </div>
+            
+            <div class="card">
+                <h3>Academic Publications</h3>
+                <ul>
+                    <li><strong>The Interdisciplinary Archivist in the Era of Generative AI</strong> - SAA Archival Outlook (2025) | <a href="https://mydigitalpublication.com/publication/?i=847458&p=6&view=issueViewer" target="_blank">Read Article</a></li>
+                    <li><strong>Between Childhood and Conflict: The Vietnamese Refugee Child Experience in Arkansas</strong> - Digital Childhoods, Society for the History of Children and Youth (2025)</li>
+                    <li><strong>Child Labor in Arkansas</strong> - Encyclopedia of Arkansas (Under Review)</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3>Essays & Commentary</h3>
+                <ul>
+                    <li><strong>Liberty and Pandemics: A Libertarian Approach to the COVID-19 Situation</strong> - Nigeopolis (2020) | <a href="https://medium.com/the-resilient-and-cynical-nigerian/liberty-and-pandemics-a-libertarian-approach-to-the-global-covid-19-situation-92d7ade6529f" target="_blank">Read Article</a></li>
+                    <li><strong>The Nigerian Problem: A Compromise of Life, a Compromise with Life and a Compromise for Life</strong> - Nigeopolis (2020) | <a href="https://medium.com/the-resilient-and-cynical-nigerian/the-nigerian-problem-a-compromise-of-life-a-compromise-with-life-and-a-compromise-for-life-59ef04183c58" target="_blank">Read Article</a></li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3>Book Reviews</h3>
+                <ul>
+                    <li><strong>African History: A Very Short Introduction</strong> by Richard Rathbone and John Parker (2019) | <a href="https://drive.google.com/file/d/1T7tBPWkkjvwt1sbyqHObcWBWr9VJaXTU/view" target="_blank">Read Review</a></li>
+                </ul>
+            </div>
+            
+            <div class="card">
+                <h3>Digital Exhibits & Research</h3>
+                <ul>
+                    <li><strong>Hugh Baskin Patterson</strong> - Center for Arkansas History and Culture (2025) | <a href="https://ualrexhibits.org/characters/hugh-patterson/" target="_blank">View Exhibit</a></li>
+                    <li><strong>Thesis Research:</strong> "Preserving the Untold Stories: Leveraging Emerging Technologies (AI and ML) for Archiving Hidden Histories of Children and Families Impacted by the Little Rock School Integration" (In Progress)</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- EXPERIENCE SECTION -->
+    <section id="experience" class="section">
+        <h1>Experience</h1>
+        
+        <div class="timeline">
+            <div class="timeline-item">
+                <div class="timeline-content">
+                    <div class="timeline-date">May 2025 - August 2025</div>
+                    <div class="timeline-title">Digital Collections Intern</div>
+                    <div class="timeline-org">Rock and Roll Hall of Fame</div>
+                    <p>Implementing AI-powered metadata enhancement solutions and managing cross-platform database integration for one of the world's premier music archives.</p>
+                </div>
+            </div>
+            
+            <div class="timeline-item">
+                <div class="timeline-content">
+                    <div class="timeline-date">May 2025 - June 2026</div>
+                    <div class="timeline-title">Inaugural Editorial Fellow</div>
+                    <div class="timeline-org">Sharing Stories from 1977, University of Houston</div>
+                    <p>Selected as one of twelve graduate fellows nationwide to contribute to a digital public history project on the 1977 National Women's Conference.</p>
+                </div>
+            </div>
+            
+            <div class="timeline-item">
+                <div class="timeline-content">
+                    <div class="timeline-date">January 2025 - May 2025</div>
+                    <div class="timeline-title">Fellow</div>
+                    <div class="timeline-org">William J. Clinton Presidential Library and Museum</div>
+                    <p>Processed presidential records for FOIA requests, managed electronic records, created metadata, and assisted with digitization projects. Specialized in textual processing, research room operations, and audiovisual archives.</p>
+                </div>
+            </div>
+            
+            <div class="timeline-item">
+                <div class="timeline-content">
+                    <div class="timeline-date">January 2024 - Present</div>
+                    <div class="timeline-title">Graduate Assistant</div>
+                    <div class="timeline-org">Center for Arkansas History and Culture</div>
+                    <p>Developed web exhibits, processed archival collections including Pfeifer Family Papers and Winthrop Rockefeller Institute Collection, assisted patrons with research, and participated in Digital Archiving Working Group (DAWG) meetings.</p>
+                </div>
+            </div>
+
+            <div class="timeline-item">
+                <div class="timeline-content">
+                    <div class="timeline-date">September 2019 - 2020</div>
+                    <div class="timeline-title">Research Assistant/Report Writer</div>
+                    <div class="timeline-org">The Phoenix Learning and Developmental Academy</div>
+                    <p>Conducted mixed-methods research, designed surveys, and analyzed agricultural value chain data. Led data collation for School Agricultural Program, boosting team fieldwork output by 85%.</p>
+                </div>
+            </div>
+
+            <div class="timeline-item">
+                <div class="timeline-content">
+                    <div class="timeline-date">January 2017 - December 2021</div>
+                    <div class="timeline-title">Student Help/Researcher</div>
+                    <div class="timeline-org">Lagos State Record and Archives Bureau (LASRAB)</div>
+                    <p>Gained foundational experience in archival practices and records management in a governmental archival institution.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CONTACT SECTION -->
+    <section id="contact" class="section">
+        <h1>Contact & Skills</h1>
+        
+        <!-- Contact Info -->
+        <div class="contact-grid">
+            <div class="contact-item">
+                <h3>Email</h3>
+                <p>onadebanjo@ualr.edu</p>
+                <p>Adebanjo.oluseyi98@gmail.com</p>
+            </div>
+            
+            <div class="contact-item">
+                <h3>Location</h3>
+                <p>Little Rock, AR 72204</p>
+            </div>
+            
+            <div class="contact-item">
+                <h3>Academic</h3>
+                <p>University of Arkansas at Little Rock</p>
+                <p>Master of Public History (2026)</p>
+                <p>GPA: 3.87</p>
+            </div>
+        </div>
+
+        <!-- Skills Section -->
+        <h2 style="text-align: center; margin: 50px 0 30px 0; color: #667eea;">Core Competencies</h2>
+        <div class="skills-grid">
+            <div class="skill-category">
+                <h4>Historical Research</h4>
+                <div class="skill-tags">
+                    <span class="skill-tag">Childhood History</span>
+                    <span class="skill-tag">Public History</span>
+                    <span class="skill-tag">Archival Research</span>
+                    <span class="skill-tag">Oral History</span>
+                    <span class="skill-tag">Mixed-Methods Research</span>
+                    <span class="skill-tag">Historical Analysis</span>
+                </div>
+            </div>
+            
+            <div class="skill-category">
+                <h4>Digital Archiving</h4>
+                <div class="skill-tags">
+                    <span class="skill-tag">Metadata Creation</span>
+                    <span class="skill-tag">Digital Preservation</span>
+                    <span class="skill-tag">FOIA Processing</span>
+                    <span class="skill-tag">Electronic Records</span>
+                    <span class="skill-tag">Finding Aids</span>
+                    <span class="skill-tag">DAS Standards</span>
+                </div>
+            </div>
+            
+            <div class="skill-category">
+                <h4>Technology & AI</h4>
+                <div class="skill-tags">
+                    <span class="skill-tag">Python</span>
+                    <span class="skill-tag">AI/Machine Learning</span>
+                    <span class="skill-tag">Blockchain</span>
+                    <span class="skill-tag">Flask</span>
+                    <span class="skill-tag">MongoDB</span>
+                    <span class="skill-tag">NLTK</span>
+                </div>
+            </div>
+            
+            <div class="skill-category">
+                <h4>Professional Skills</h4>
+                <div class="skill-tags">
+                    <span class="skill-tag">Project Management</span>
+                    <span class="skill-tag">Data Analysis</span>
+                    <span class="skill-tag">Report Writing</span>
+                    <span class="skill-tag">Digital Exhibits</span>
+                    <span class="skill-tag">Public Engagement</span>
+                    <span class="skill-tag">Grant Writing</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Awards Section -->
+        <h2 style="text-align: center; margin: 50px 0 30px 0; color: #667eea;">Awards & Recognition</h2>
+        <div class="awards-grid">
+            <div class="award-item">
+                <div class="award-title">David Gracy II Society of Southwest Archivists Scholarship</div>
+                <div class="award-org">Society of Southwest Archivists</div>
+                <div class="award-year">2025</div>
+            </div>
+            
+            <div class="award-item">
+                <div class="award-title">Code4Libraries Diversity Scholarship</div>
+                <div class="award-org">Code4Lib Community</div>
+                <div class="award-year">2025</div>
+            </div>
+            
+            <div class="award-item">
+                <div class="award-title">Fred C. Williams Public History Scholarship</div>
+                <div class="award-org">University of Arkansas at Little Rock</div>
+                <div class="award-year">2025</div>
+            </div>
+            
+            <div class="award-item">
+                <div class="award-title">Little Rock Nine Scholarship</div>
+                <div class="award-org">University of Arkansas at Little Rock</div>
+                <div class="award-year">2024, 2025</div>
+            </div>
+            
+            <div class="award-item">
+                <div class="award-title">Objective Standard Institute Active Mind Scholarships</div>
+                <div class="award-org">TOS-Con Liberty Conference</div>
+                <div class="award-year">2019, 2020, 2024</div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        // Typewriter effect data
+        const interestedItems = [
+            "Digital Preservation",
+            "Childhood History", 
+            "AI & Machine Learning",
+            "Blockchain Technology",
+            "Public History",
+            "Social Justice",
+            "Hidden Histories"
+        ];
+
+        const skillsItems = [
+            "Archival Processing",
+            "Metadata Creation",
+            "Historical Research",
+            "AI Development",
+            "Digital Exhibits",
+            "FOIA Processing",
+            "Python Programming"
+        ];
+
+        const awardsItems = [
+            "David Gracy II Scholarship 2025",
+            "Code4Libraries Diversity Scholar",
+            "Fred C. Williams Scholar", 
+            "Little Rock Nine Scholarship",
+            "TOS-Con Active Mind Scholar"
+        ];
+
+        let interestedIndex = 0;
+        let skillsIndex = 0;
+        let awardsIndex = 0;
+        let isDeleting = false;
+        let currentText = '';
+        let currentSection = 'interested';
+        let typewriterRunning = false;
+
+        function typeWriter() {
+            if (!typewriterRunning) return;
+            
+            const interestedElement = document.getElementById('interested-text');
+            const skillsElement = document.getElementById('skills-text');
+            const awardsElement = document.getElementById('awards-text');
+
+            if (!interestedElement || !skillsElement || !awardsElement) {
+                setTimeout(typeWriter, 1000);
+                return;
+            }
+
+            let targetArray, targetIndex, targetElement;
+            
+            if (currentSection === 'interested') {
+                targetArray = interestedItems;
+                targetIndex = interestedIndex;
+                targetElement = interestedElement;
+            } else if (currentSection === 'skills') {
+                targetArray = skillsItems;
+                targetIndex = skillsIndex;
+                targetElement = skillsElement;
+            } else {
+                targetArray = awardsItems;
+                targetIndex = awardsIndex;
+                targetElement = awardsElement;
+            }
+
+            const targetText = targetArray[targetIndex];
+
+            if (isDeleting) {
+                currentText = targetText.substring(0, currentText.length - 1);
+            } else {
+                currentText = targetText.substring(0, currentText.length + 1);
+            }
+
+            targetElement.textContent = currentText;
+
+            let typeSpeed = isDeleting ? 30 : 60;
+
+            if (!isDeleting && currentText === targetText) {
+                typeSpeed = 2000;
+                isDeleting = true;
+            } else if (isDeleting && currentText === '') {
+                isDeleting = false;
+                
+                if (currentSection === 'interested') {
+                    interestedIndex = (interestedIndex + 1) % interestedItems.length;
+                    currentSection = 'skills';
+                } else if (currentSection === 'skills') {
+                    skillsIndex = (skillsIndex + 1) % skillsItems.length;
+                    currentSection = 'awards';
+                } else {
+                    awardsIndex = (awardsIndex + 1) % awardsItems.length;
+                    currentSection = 'interested';
+                }
+                
+                typeSpeed = 500;
+            }
+
+            setTimeout(typeWriter, typeSpeed);
+        }
+
+        // Navigation function
+        function showSection(sectionId) {
+            // Remove active class from all sections
+            const sections = document.querySelectorAll('.section');
+            sections.forEach(section => {
+                section.classList.remove('active');
+            });
+
+            // Remove active class from all nav links
+            const navLinks = document.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+            });
+
+            // Show target section
+            const targetSection = document.getElementById(sectionId);
+            if (targetSection) {
+                targetSection.classList.add('active');
+            }
+
+            // Add active class to corresponding nav link
+            const activeLink = document.querySelector(`a[href="#${sectionId}"]`);
+            if (activeLink) {
+                activeLink.classList.add('active');
+            }
+
+            // Control typewriter based on section
+            if (sectionId === 'home') {
+                if (!typewriterRunning) {
+                    typewriterRunning = true;
+                    setTimeout(typeWriter, 500);
+                }
+            } else {
+                typewriterRunning = false;
+            }
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Page loaded, initializing...');
+            
+            // Start typewriter effect for home page
+            typewriterRunning = true;
+            setTimeout(typeWriter, 1000);
+
+            // Add click handlers to navigation
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const sectionId = this.getAttribute('href').substring(1);
+                    showSection(sectionId);
+                });
+            });
+
+            // Mouse parallax effect
+            document.addEventListener('mousemove', function(e) {
+                const particles = document.querySelectorAll('.particle');
+                const x = e.clientX / window.innerWidth;
+                const y = e.clientY / window.innerHeight;
+                
+                particles.forEach((particle, index) => {
+                    const speed = (index + 1) * 0.5;
+                    const moveX = (x - 0.5) * speed * 20;
+                    const moveY = (y - 0.5) * speed * 20;
+                    particle.style.transform = `translate(${moveX}px, ${moveY}px)`;
+                });
+            });
+
+            console.log('Initialization complete');
+        });
+
+        // Make showSection globally available
+        window.showSection = showSection;
+    </script>
+</body>
+</html>
