@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Noah's Lexicon — Vocabulary Practice</title>
+  <meta name="description" content="A personal vocabulary practice tool with flashcards, quiz, fill-in-blank, and usage modes." />
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0d0d0d; color: #f0ece4; font-family: Georgia, serif; }
+    #root { min-height: 100vh; }
+    button, input { font-family: inherit; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+    .wotd-banner { animation: fadeIn 0.4s ease; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+
+/* ── helpers ─────────────────────────────────────────── */
+const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
+
+const getWrongOptions = (correct, all, count = 3) =>
+  shuffle(all.filter(w => w.word !== correct.word)).slice(0, count).map(w => w.definition);
+
+/* ── localStorage helpers ────────────────────────────── */
+const MASTERED_KEY = "lexicon_mastered_v2";
+const SRS_KEY      = "lexicon_srs_v2";
+
+function loadSet(key)   { try { return new Set(JSON.parse(localStorage.getItem(key) || "[]")); } catch { return new Set(); } }
+function saveSet(key,s) { try { localStorage.setItem(key, JSON.stringify([...s])); } catch {} }
+function loadSRS()      { try { return JSON.parse(localStorage.getItem(SRS_KEY) || "{}"); } catch { return {}; } }
+function saveSRS(obj)   { try { localStorage.setItem(SRS_KEY, JSON.stringify(obj)); } catch {} }
+
+/* ── word-of-the-day (deterministic by date) ─────────── */
+function getWotd(words) {
+  if (!words.length) return null;
+  const day = Math.floor(Date.now() / 86400000);
+  return words[day % words.length];
+}
+
+/* ── SRS deck builder ────────────────────────────────── */
+function buildSRSDeck(words, srsData) {
+  const now = Date.now();
+  const due  = words.filter(w => !srsData[w.word] || srsData[w.word].nextReview <= now);
+  const rest = words.filter(w =>  srsData[w.word] && srsData[w.word].nextReview >  now);
+  return [...shuffle(due), ...shuffle(rest)];
+}
+
+/* ── speech ──────────────────────────────────────────── */
+function speak(word) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(word);
+  u.rate = 0.85;
+  window.speechSynthesis.speak(u);
+}
+
+/* ── constants ───────────────────────────────────────── */
+const MODES   = ["flashcard", "quiz", "fill-blank", "usage"];
+const FILTERS = ["all", "unmastered", "mastered", "academic", "general", "law", "history", "writing"];
+
+/* ── intervals (ms) for SRS boxes ───────────────────── */
+const SRS_INTERVALS = { again: 0, hard: 10 * 60 * 1000, good: 24 * 60 * 60 * 1000, easy: 4 * 24 * 60 * 60 * 1000 };
+
+/* ══════════════════════════════════════════════════════ */
+export default function VocabMaster() {
+  const [words,      setWords]      = useState([]);
+  const [loading,    setLoading]    = useState(true);
+  const [error,      setError]      = useState(null);
+
+  const [mode,       setMode]       = useState("flashcard");
+  const [deck,       setDeck]       = useState([]);
+  const [index,      setIndex]      = useState(0);
+  const [flipped,    setFlipped]    = useState(false);
+  const [quizOpts,   setQuizOpts]   = useState([]);
+  const [selected,   setSelected]   = useState(null);
+  const [score,      setScore]      = useState({ correct: 0, total: 0 });
+  const [filter,     setFilter]     = useState("all");
+  const [tagFilter,  setTagFilter]  = useState(null);
+  const [mastered,   setMastered]   = useState(() => loadSet(MASTERED_KEY));
+  const [srsData,    setSrsData]    = useState(() => loadSRS());
+  const [fillAnswer, setFillAnswer] = useState("");
+  const [fillChecked,setFillChecked]= useState(false);
+  const [streak,     setStreak]     = useState(0);
+  const [showHint,   setShowHint]   = useState(false);
+  const [search,     setSearch]     = useState("");
+  const [showKeys,   setShowKeys]   = useState(false);
+  const [wotdOpen,   setWotdOpen]   = useState(true);
+
+  /* load words.json */
+  useEffect(() => {
+    fetch("words.json")
+      .then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+      .then(data => { setWords(data); setLoading(false); })
+      .catch(e  => { setError(e.message); setLoading(false); });
+  }, []);
+
+  /* rebuild deck when words / filter / tag / search / srsData change */
+  useEffect(() => {
+    if (!words.length) return;
+    let base = words.filter(w => {
+      if (search)     return w.word.toLowerCase().includes(search.toLowerCase()) ||
+                             w.definition.toLowerCase().includes(search.toLowerCase());
+      if (tagFilter)  return w.tags.includes(tagFilter);
+      if (filter === "mastered")   return mastered.has(w.word);
+      if (filter === "unmastered") return !mastered.has(w.word);
+      if (filter === "academic")   return w.context.includes("academic");
+      if (filter === "general")    return w.context.includes("general");
+      if (filter === "law")        return w.tags.includes("law") || w.context.includes("legal");
+      if (filter === "history")    return w.tags.includes("history");
+      if (filter === "writing")    return w.tags.includes("writing");
+      return true;
+    });
+    setDeck(buildSRSDeck(base, srsData));
+    setIndex(0);
+  }, [words, filter, tagFilter, search, srsData, mastered]);
+
+  const filteredLen = deck.length;
+  const current = filteredLen ? deck[index % filteredLen] : null;
+  const wotd = words.length ? getWotd(words) : null;
+
+  /* reset per-card state when card changes */
+  useEffect(() => {
+    if (!current) return;
+    if (mode === "quiz") setQuizOpts(shuffle([current.definition, ...getWrongOptions(current, words)]));
+    setSelected(null); setFlipped(false);
+    setFillAnswer(""); setFillChecked(false); setShowHint(false);
+  }, [index, mode, current?.word]);
+
+  /* navigation */
+  const next = useCallback(() => setIndex(i => (i + 1) % Math.max(filteredLen, 1)), [filteredLen]);
+  const prev = useCallback(() => setIndex(i => (i - 1 + Math.max(filteredLen, 1)) % Math.max(filteredLen, 1)), [filteredLen]);
+
+  /* mastered toggle */
+  const markMastered = useCallback(() => {
+    if (!current) return;
+    setMastered(prev => {
+      const next = new Set(prev);
+      next.has(current.word) ? next.delete(current.word) : next.add(current.word);
+      saveSet(MASTERED_KEY, next);
+      return next;
+    });
+  }, [current]);
+
+  /* SRS rating */
+  const rateSRS = useCallback((rating) => {
+    if (!current) return;
+    setSrsData(prev => {
+      const next = { ...prev, [current.word]: { nextReview: Date.now() + SRS_INTERVALS[rating], rating } };
+      saveSRS(next);
+      return next;
+    });
+    if (rating !== "again") setTimeout(next, 180);
+    else {
+      /* re-insert 5 cards ahead */
+      setDeck(d => {
+        const copy = [...d];
+        const cur  = copy.splice(index % copy.length, 1)[0];
+        const insertAt = Math.min((index % copy.length) + 5, copy.length);
+        copy.splice(insertAt, 0, cur);
+        return copy;
+      });
+    }
+  }, [current, index, next]);
+
+  /* keyboard shortcuts */
+  useEffect(() => {
+    function onKey(e) {
+      if (e.target.tagName === "INPUT") return;
+      if (e.key === "ArrowRight")         next();
+      else if (e.key === "ArrowLeft")     prev();
+      else if (e.key === " ")             { e.preventDefault(); setFlipped(f => !f); }
+      else if (e.key === "m" || e.key === "M") markMastered();
+      else if (e.key === "s" || e.key === "S") current && speak(current.word);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [next, prev, markMastered, current]);
+
+  /* quiz handler */
+  const handleQuizSelect = (opt) => {
+    if (selected !== null) return;
+    setSelected(opt);
+    const ok = opt === current.definition;
+    setScore(s => ({ correct: s.correct + (ok ? 1 : 0), total: s.total + 1 }));
+    setStreak(s => ok ? s + 1 : 0);
+  };
+
+  /* fill-in handler */
+  const checkFill = () => {
+    if (!fillAnswer.trim()) return;
+    setFillChecked(true);
+    const ok = fillAnswer.trim().toLowerCase() === current.word.toLowerCase();
+    setScore(s => ({ correct: s.correct + (ok ? 1 : 0), total: s.total + 1 }));
+    setStreak(s => ok ? s + 1 : 0);
+  };
+
+  /* tag click */
+  const onTagClick = (tag) => {
+    setTagFilter(tag);
+    setFilter("all");
+    setSearch("");
+    setIndex(0);
+  };
+  const clearTagFilter = () => setTagFilter(null);
+
+  /* ── loading / error screens ─── */
+  if (loading) return (
+    <div style={{ display:"flex", justifyContent:"center", alignItems:"center", height:"100vh", background:"#0d0d0d", color:"#6a6050", fontSize:"14px", fontFamily:"Georgia, serif" }}>
+      Loading lexicon…
+    </div>
+  );
+  if (error) return (
+    <div style={{ display:"flex", justifyContent:"center", alignItems:"center", height:"100vh", background:"#0d0d0d", color:"#9e4a4a", fontSize:"14px", fontFamily:"Georgia, serif" }}>
+      Could not load words.json: {error}
+    </div>
+  );
+  if (!current) return (
+    <div style={{ display:"flex", justifyContent:"center", alignItems:"center", height:"100vh", background:"#0d0d0d", color:"#f0ece4", fontFamily:"Georgia, serif", fontSize:"16px" }}>
+      No cards match that filter.{" "}
+      <button onClick={() => { setFilter("all"); setTagFilter(null); setSearch(""); }}
+        style={{ marginLeft:"10px", background:"none", border:"none", color:"#c8a96e", cursor:"pointer", fontSize:"16px", textDecoration:"underline" }}>
+        Reset
+      </button>
+    </div>
+  );
+
+  const isMastered = mastered.has(current.word);
+  const pct = score.total > 0 ? Math.round((score.correct / score.total) * 100) : null;
+  const today = new Date().toLocaleDateString("en-US", { month:"long", day:"numeric" });
+
+  /* ── style shorthands ─── */
+  const btn = (active, activeColor = "#c8a96e") => ({
+    padding: "5px 14px", borderRadius: "4px", border: "1px solid",
+    borderColor: active ? activeColor : "#252525",
+    background:  active ? `${activeColor}12`  : "transparent",
+    color:       active ? activeColor : "#555",
+    fontSize: "12px", cursor: "pointer",
+  });
+  const filterBtn = (f) => btn(filter === f && !search && !tagFilter, "#7a9e7e");
+
+  return (
+    <div style={{ minHeight:"100vh", background:"#0d0d0d", color:"#f0ece4", fontFamily:"Georgia, serif", display:"flex", flexDirection:"column" }}>
+
+      {/* ── Word of the Day banner ── */}
+      {wotdOpen && wotd && (
+        <div className="wotd-banner" style={{ background:"#111408", borderBottom:"1px solid #2a2800", padding:"10px 24px", display:"flex", alignItems:"center", gap:"12px", flexWrap:"wrap" }}>
+          <span style={{ fontSize:"10px", color:"#6a6030", textTransform:"uppercase", letterSpacing:"0.2em", flexShrink:0 }}>{today} · Word of the Day</span>
+          <span style={{ fontSize:"15px", fontWeight:"bold", color:"#e8d87a" }}>{wotd.word}</span>
+          <span style={{ fontSize:"12px", color:"#8a8050", fontStyle:"italic" }}>{wotd.pronunciation}</span>
+          <span style={{ fontSize:"13px", color:"#b0a878" }}>— {wotd.definition}</span>
+          <button onClick={() => setWotdOpen(false)}
+            style={{ marginLeft:"auto", background:"none", border:"none", color:"#4a4030", cursor:"pointer", fontSize:"16px", lineHeight:1 }}>×</button>
+        </div>
+      )}
+
+      {/* ── Header ── */}
+      <div style={{ padding:"13px 24px 11px", borderBottom:"1px solid #1e1e1e", display:"flex", justifyContent:"space-between", alignItems:"center", background:"#111", flexWrap:"wrap", gap:"8px" }}>
+        <div>
+          <div style={{ fontSize:"10px", letterSpacing:"0.25em", color:"#6a6050", textTransform:"uppercase", marginBottom:"1px" }}>Noah's</div>
+          <div style={{ fontSize:"20px", fontWeight:"bold", letterSpacing:"-0.03em" }}>Lexicon</div>
+        </div>
+        <div style={{ display:"flex", gap:"14px", alignItems:"center", flexWrap:"wrap" }}>
+          <div style={{ fontSize:"12px", color:"#5a5a5a" }}>{words.length} words</div>
+          {pct !== null && <div style={{ fontSize:"13px", color:"#c8a96e" }}>{pct}% ({score.correct}/{score.total})</div>}
+          {streak >= 3 && <div style={{ background:"#c8a96e15", border:"1px solid #c8a96e55", borderRadius:"6px", padding:"3px 10px", fontSize:"12px", color:"#c8a96e" }}>🔥 {streak}</div>}
+          <div style={{ fontSize:"12px", color:"#7a9e7e" }}>{mastered.size} mastered</div>
+          <button onClick={() => setShowKeys(k => !k)}
+            style={{ background:"none", border:"1px solid #252525", borderRadius:"4px", color:"#444", fontSize:"11px", padding:"3px 9px", cursor:"pointer" }}>
+            ⌨ keys
+          </button>
+        </div>
+      </div>
+
+      {/* ── Keyboard hint strip ── */}
+      {showKeys && (
+        <div style={{ background:"#111", borderBottom:"1px solid #1a1a1a", padding:"8px 24px", fontSize:"11px", color:"#555", display:"flex", gap:"20px", flexWrap:"wrap" }}>
+          {[["←","prev"],["→","next"],["Space","flip"],["M","mastered"],["S","speak"]].map(([k,v]) => (
+            <span key={k}><kbd style={{ background:"#1e1e1e", border:"1px solid #333", borderRadius:"3px", padding:"1px 5px", color:"#888" }}>{k}</kbd> {v}</span>
+          ))}
+        </div>
+      )}
+
+      {/* ── Mode + filter bar ── */}
+      <div style={{ padding:"10px 24px", borderBottom:"1px solid #191919", display:"flex", gap:"6px", flexWrap:"wrap", alignItems:"center", background:"#0e0e0e" }}>
+        {MODES.map(m => (
+          <button key={m} onClick={() => { setMode(m); setIndex(0); }} style={btn(mode === m)}>
+            {m === "fill-blank" ? "Fill-in" : m.charAt(0).toUpperCase() + m.slice(1)}
+          </button>
+        ))}
+        <div style={{ width:"1px", background:"#222", margin:"0 6px", height:"20px" }} />
+        {tagFilter
+          ? <button onClick={clearTagFilter}
+              style={{ padding:"5px 11px", borderRadius:"4px", border:"1px solid #c8a96e", background:"#c8a96e15", color:"#c8a96e", fontSize:"11px", cursor:"pointer" }}>
+              #{tagFilter} ×
+            </button>
+          : FILTERS.map(f => (
+              <button key={f} onClick={() => { setFilter(f); setIndex(0); setSearch(""); }} style={filterBtn(f)}>
+                {f}
+              </button>
+            ))
+        }
+        <input value={search} onChange={e => { setSearch(e.target.value); setIndex(0); setTagFilter(null); }} placeholder="Search…"
+          style={{ marginLeft:"auto", background:"#161616", border:"1px solid #2a2a2a", borderRadius:"6px", padding:"5px 12px", color:"#f0ece4", fontSize:"12px", outline:"none", width:"140px" }} />
+      </div>
+
+      {/* ── Progress bar ── */}
+      <div style={{ height:"2px", background:"#181818" }}>
+        <div style={{ height:"100%", background:"#c8a96e44", width:`${((index % filteredLen) / filteredLen) * 100}%`, transition:"width 0.3s" }} />
+      </div>
+
+      {/* ── Main ── */}
+      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"28px 20px" }}>
+
+        {/* Word identity */}
+        <div style={{ textAlign:"center", marginBottom:"22px" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:"10px", justifyContent:"center", flexWrap:"wrap" }}>
+            <div style={{ fontSize:"38px", fontWeight:"bold", letterSpacing:"-0.03em", color: isMastered ? "#c8a96e" : "#f0ece4" }}>
+              {current.word}
+            </div>
+            {isMastered && <span style={{ fontSize:"11px", background:"#c8a96e15", color:"#c8a96e", padding:"2px 8px", borderRadius:"10px", border:"1px solid #c8a96e33" }}>✓ mastered</span>}
+          </div>
+
+          {/* pronunciation + speak button */}
+          <div style={{ display:"flex", alignItems:"center", gap:"8px", justifyContent:"center", marginTop:"4px" }}>
+            <span style={{ fontSize:"13px", color:"#6a6050", fontStyle:"italic" }}>{current.pronunciation}</span>
+            <button onClick={() => speak(current.word)} title="Hear pronunciation (S)"
+              style={{ background:"none", border:"none", cursor:"pointer", color:"#4a4040", fontSize:"15px", padding:"0", lineHeight:1 }}>🔊</button>
+          </div>
+
+          <div style={{ fontSize:"10px", color:"#484848", marginTop:"3px", textTransform:"uppercase", letterSpacing:"0.12em" }}>{current.pos}</div>
+
+          {/* tags — click to drill */}
+          <div style={{ display:"flex", gap:"6px", justifyContent:"center", marginTop:"8px", flexWrap:"wrap" }}>
+            {current.tags.map(t => (
+              <button key={t} onClick={() => onTagClick(t)}
+                style={{ fontSize:"10px", color:"#4a5a4a", border:"1px solid #2a3a2a", borderRadius:"10px", padding:"2px 9px", background:"none", cursor:"pointer", transition:"background 0.15s" }}
+                onMouseEnter={e => e.target.style.background="#2a3a2a"}
+                onMouseLeave={e => e.target.style.background="none"}>
+                #{t}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── FLASHCARD ── */}
+        {mode === "flashcard" && (
+          <div style={{ width:"100%", maxWidth:"560px" }}>
+            <div onClick={() => setFlipped(f => !f)}
+              style={{ background:"#141414", border:"1px solid #2a2a2a", borderRadius:"12px", padding:"32px", cursor:"pointer", minHeight:"160px", display:"flex", flexDirection:"column", justifyContent:"center", position:"relative" }}>
+              <div style={{ position:"absolute", top:"12px", right:"14px", fontSize:"10px", color:"#333", letterSpacing:"0.1em" }}>TAP TO FLIP</div>
+              {!flipped
+                ? <div style={{ textAlign:"center" }}>
+                    <div style={{ fontSize:"11px", color:"#5a5050", marginBottom:"10px", textTransform:"uppercase", letterSpacing:"0.1em" }}>Definition</div>
+                    <div style={{ fontSize:"19px", lineHeight:"1.55", color:"#f0ece4" }}>{current.definition}</div>
+                  </div>
+                : <div>
+                    <div style={{ fontSize:"11px", color:"#5a5050", marginBottom:"10px", textTransform:"uppercase", letterSpacing:"0.1em" }}>Example</div>
+                    <div style={{ fontSize:"16px", lineHeight:"1.65", color:"#d4c9b8", fontStyle:"italic", borderLeft:"2px solid #c8a96e33", paddingLeft:"16px" }}>"{current.example}"</div>
+                    <div style={{ marginTop:"14px", fontSize:"11px", color:"#484848" }}>Context: <span style={{ color:"#7a9e7e" }}>{current.context}</span></div>
+                  </div>
+              }
+            </div>
+
+            {/* SRS buttons — shown after flip */}
+            {flipped && (
+              <div style={{ display:"flex", gap:"8px", marginTop:"12px", justifyContent:"center" }}>
+                {[["again","#9e4a4a","Again"],["hard","#a07840","Hard"],["good","#4a7a8a","Got it"],["easy","#4a8a5a","Easy"]].map(([r, col, label]) => (
+                  <button key={r} onClick={() => rateSRS(r)}
+                    style={{ flex:1, padding:"9px 0", background:`${col}15`, border:`1px solid ${col}55`, borderRadius:"6px", color:col, fontSize:"12px", cursor:"pointer" }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── QUIZ ── */}
+        {mode === "quiz" && (
+          <div style={{ width:"100%", maxWidth:"560px" }}>
+            <div style={{ fontSize:"14px", color:"#7a7060", marginBottom:"14px", textAlign:"center" }}>
+              Which definition matches <strong style={{ color:"#f0ece4" }}>{current.word}</strong>?
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
+              {quizOpts.map((opt, i) => {
+                const isCorrect  = opt === current.definition;
+                const isSelected = selected === opt;
+                let bg="#141414", border="#242424", col="#b8b0a0";
+                if (selected !== null) {
+                  if (isCorrect)       { bg="#7a9e7e12"; border="#7a9e7e"; col="#7a9e7e"; }
+                  else if (isSelected) { bg="#9e4a4a12"; border="#9e4a4a"; col="#9e6060"; }
+                }
+                return (
+                  <div key={i} onClick={() => handleQuizSelect(opt)}
+                    style={{ background:bg, border:`1px solid ${border}`, borderRadius:"8px", padding:"13px 16px", cursor:selected?"default":"pointer", color:col, fontSize:"14px", lineHeight:"1.5", transition:"all 0.15s" }}>
+                    {opt}
+                  </div>
+                );
+              })}
+            </div>
+            {selected && (
+              <div style={{ marginTop:"14px", padding:"14px", background:"#141414", borderRadius:"8px", border:"1px solid #242424" }}>
+                <div style={{ fontSize:"11px", color:"#6a6050", marginBottom:"6px" }}>Example:</div>
+                <div style={{ fontSize:"14px", color:"#d4c9b8", fontStyle:"italic" }}>"{current.example}"</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── FILL IN ── */}
+        {mode === "fill-blank" && (
+          <div style={{ width:"100%", maxWidth:"560px" }}>
+            <div style={{ background:"#141414", border:"1px solid #242424", borderRadius:"12px", padding:"26px", marginBottom:"14px" }}>
+              <div style={{ fontSize:"11px", color:"#5a5050", marginBottom:"10px", textTransform:"uppercase", letterSpacing:"0.1em" }}>Fill in the blank</div>
+              <div style={{ fontSize:"16px", lineHeight:"1.7", color:"#d4c9b8", fontStyle:"italic" }}>
+                "{current.example.replace(new RegExp(`\\b${current.word}\\b`, "i"), "___________")}"
+              </div>
+              {!showHint
+                ? <button onClick={() => setShowHint(true)} style={{ marginTop:"12px", background:"none", border:"none", color:"#4a4040", fontSize:"12px", cursor:"pointer", textDecoration:"underline" }}>Hint: show definition</button>
+                : <div style={{ marginTop:"12px", fontSize:"13px", color:"#7a7060", borderTop:"1px solid #222", paddingTop:"10px" }}>{current.definition}</div>
+              }
+            </div>
+            <div style={{ display:"flex", gap:"8px" }}>
+              <input value={fillAnswer} onChange={e => setFillAnswer(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && !fillChecked && checkFill()}
+                placeholder="Type the word…" disabled={fillChecked}
+                style={{ flex:1, background:"#141414", border:`1px solid ${fillChecked ? (fillAnswer.trim().toLowerCase()===current.word.toLowerCase() ? "#7a9e7e" : "#9e4a4a") : "#2a2a2a"}`, borderRadius:"8px", padding:"11px 14px", color:"#f0ece4", fontSize:"15px", outline:"none" }} />
+              {!fillChecked && <button onClick={checkFill} style={{ background:"#c8a96e15", border:"1px solid #c8a96e44", color:"#c8a96e", padding:"11px 18px", borderRadius:"8px", cursor:"pointer", fontSize:"14px" }}>Check</button>}
+            </div>
+            {fillChecked && (
+              <div style={{ marginTop:"10px", padding:"12px 14px", borderRadius:"8px",
+                background: fillAnswer.trim().toLowerCase()===current.word.toLowerCase() ? "#7a9e7e12" : "#9e4a4a12",
+                border:`1px solid ${fillAnswer.trim().toLowerCase()===current.word.toLowerCase() ? "#7a9e7e33" : "#9e4a4a33"}` }}>
+                {fillAnswer.trim().toLowerCase()===current.word.toLowerCase()
+                  ? <span style={{ color:"#7a9e7e" }}>Correct.</span>
+                  : <span style={{ color:"#c09090" }}>The word was <strong style={{ color:"#f0ece4" }}>{current.word}</strong>.</span>}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── USAGE ── */}
+        {mode === "usage" && (
+          <div style={{ width:"100%", maxWidth:"560px" }}>
+            <div style={{ background:"#141414", border:"1px solid #242424", borderRadius:"12px", padding:"26px", marginBottom:"12px" }}>
+              <div style={{ fontSize:"11px", color:"#5a5050", marginBottom:"8px", textTransform:"uppercase", letterSpacing:"0.1em" }}>Use it in a sentence</div>
+              <div style={{ fontSize:"13px", color:"#5a5a5a", marginBottom:"14px" }}>Say or write a sentence using <strong style={{ color:"#c8a96e" }}>{current.word}</strong>, then reveal the model.</div>
+              <div style={{ fontSize:"11px", color:"#6a6050", marginBottom:"6px" }}>Definition</div>
+              <div style={{ fontSize:"15px", color:"#d4c9b8", lineHeight:"1.55" }}>{current.definition}</div>
+            </div>
+            <button onClick={() => setFlipped(f => !f)}
+              style={{ width:"100%", padding:"13px", background:"#141414", border:"1px solid #2a2a2a", borderRadius:"8px", color:"#6a6a6a", cursor:"pointer", fontSize:"14px", marginBottom:"10px" }}>
+              {flipped ? "Hide" : "Reveal"} model sentence
+            </button>
+            {flipped && (
+              <div style={{ background:"#141414", border:"1px solid #c8a96e22", borderRadius:"8px", padding:"16px" }}>
+                <div style={{ fontSize:"10px", color:"#c8a96e66", marginBottom:"8px", textTransform:"uppercase", letterSpacing:"0.1em" }}>Model</div>
+                <div style={{ fontSize:"16px", color:"#d4c9b8", fontStyle:"italic", lineHeight:"1.6" }}>"{current.example}"</div>
+                <div style={{ marginTop:"10px", fontSize:"11px", color:"#484848" }}>Context: <span style={{ color:"#7a9e7e" }}>{current.context}</span></div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Navigation ── */}
+        <div style={{ display:"flex", gap:"10px", marginTop:"26px", alignItems:"center" }}>
+          <button onClick={prev} style={{ padding:"9px 18px", background:"#141414", border:"1px solid #242424", borderRadius:"6px", color:"#7a7060", cursor:"pointer", fontSize:"14px" }}>← Prev</button>
+          <button onClick={markMastered}
+            style={{ padding:"9px 18px", background: isMastered ? "#c8a96e15" : "#141414", border:`1px solid ${isMastered ? "#c8a96e" : "#242424"}`, borderRadius:"6px", color: isMastered ? "#c8a96e" : "#5a5a5a", cursor:"pointer", fontSize:"13px" }}>
+            {isMastered ? "✓ Mastered" : "Mark mastered"}
+          </button>
+          <button onClick={next} style={{ padding:"9px 18px", background:"#c8a96e15", border:"1px solid #c8a96e44", borderRadius:"6px", color:"#c8a96e", cursor:"pointer", fontSize:"14px" }}>Next →</button>
+        </div>
+        <div style={{ marginTop:"10px", fontSize:"11px", color:"#333" }}>
+          {(index % filteredLen) + 1} / {filteredLen}
+          {tagFilter && <span style={{ color:"#c8a96e88" }}> · #{tagFilter}</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<VocabMaster />);
+</script>
+</body>
+</html>
