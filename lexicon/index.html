@@ -12,379 +12,310 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #0d0d0d; color: #f0ece4; font-family: Georgia, serif; }
     #root { min-height: 100vh; }
-    button { font-family: inherit; }
-    input { font-family: inherit; }
-
+    button, input { font-family: inherit; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+    .wotd-banner { animation: fadeIn 0.4s ease; }
   </style>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const { useState, useEffect, useCallback } = React;
+const { useState, useEffect, useCallback, useRef } = React;
 
-const WORDS = [
-  { word: "meretricious", pronunciation: "mer-ih-TRISH-us", pos: "adjective", definition: "Apparently attractive but having in reality no value or integrity.", example: "The politician's meretricious promises collapsed the moment he won the election.", context: "general/academic", tags: ["character", "critique"] },
-  { word: "perspicacious", pronunciation: "per-spih-KAY-shus", pos: "adjective", definition: "Having a ready insight; shrewd.", example: "A perspicacious reader catches what the footnotes are actually arguing.", context: "general/academic", tags: ["intellect"] },
-  { word: "prevaricate", pronunciation: "prih-VAIR-ih-kate", pos: "verb", definition: "To speak or act evasively; to avoid the truth without technically lying.", example: "He prevaricated through the entire interview, never once giving a straight answer.", context: "general/legal", tags: ["speech", "deception"] },
-  { word: "equanimity", pronunciation: "ee-kwuh-NIM-ih-tee", pos: "noun", definition: "Mental calmness and composure, especially in a difficult situation.", example: "She absorbed the rejection with equanimity and moved on before the day was out.", context: "general", tags: ["composure", "character"] },
-  { word: "callow", pronunciation: "KAL-oh", pos: "adjective", definition: "Inexperienced and immature.", example: "The callow graduate arrived confident and left humbled.", context: "general", tags: ["youth", "character"] },
-  { word: "irascible", pronunciation: "ih-RAS-ih-bul", pos: "adjective", definition: "Having or showing a tendency to be easily angered.", example: "The irascible professor could derail an entire seminar over a misplaced citation.", context: "general", tags: ["temperament"] },
-  { word: "abstruse", pronunciation: "ab-STROOS", pos: "adjective", definition: "Difficult to understand; obscure.", example: "The theoretical framework was abstruse enough to alienate half the committee.", context: "academic", tags: ["complexity", "critique"] },
-  { word: "insouciance", pronunciation: "in-SOO-see-ance", pos: "noun", definition: "Casual lack of concern; breezy indifference.", example: "He walked into the defense with an insouciance that either signaled confidence or catastrophe.", context: "general", tags: ["attitude"] },
-  { word: "nugatory", pronunciation: "NOO-guh-tor-ee", pos: "adjective", definition: "Of no value or importance; futile.", example: "The amendment was nugatory — it changed the language but not the outcome.", context: "academic/legal", tags: ["critique", "law"] },
-  { word: "compunction", pronunciation: "kum-PUNK-shun", pos: "noun", definition: "A feeling of guilt or moral scruple about something.", example: "He signed the order without compunction, which told you everything you needed to know.", context: "general", tags: ["morality", "character"] },
-  { word: "fatuous", pronunciation: "FACH-oo-us", pos: "adjective", definition: "Silly and pointless.", example: "The editorial response to the report was fatuous, missing every substantive critique.", context: "general/academic", tags: ["critique", "intellect"] },
-  { word: "afflatus", pronunciation: "ah-FLAY-tus", pos: "noun", definition: "A divine creative impulse or inspiration.", example: "He wrote the introduction in one sitting, riding what felt like afflatus.", context: "general/academic", tags: ["creativity"] },
-  { word: "prolix", pronunciation: "PRO-liks", pos: "adjective", definition: "Using or containing too many words; tediously lengthy.", example: "The prolix dissertation defended every claim three times when once would have done.", context: "academic/writing", tags: ["writing", "critique"] },
-  { word: "judicious", pronunciation: "joo-DISH-us", pos: "adjective", definition: "Having or showing sound judgment.", example: "A judicious use of primary sources distinguishes a good argument from a great one.", context: "general/academic", tags: ["intellect", "judgment"] },
-  { word: "forthright", pronunciation: "FORTH-ryte", pos: "adjective", definition: "Direct and outspoken; straightforward.", example: "She was forthright about the gaps in the evidence rather than papering over them.", context: "general", tags: ["character", "speech"] },
-  { word: "platitude", pronunciation: "PLAT-ih-tood", pos: "noun", definition: "A remark or statement that is overused and betrays a lack of original thought.", example: "The keynote was thirty minutes of platitudes dressed up as insight.", context: "general/academic", tags: ["critique", "writing"] },
-  { word: "heterodox", pronunciation: "HET-er-oh-doks", pos: "adjective", definition: "Not conforming to accepted or orthodox standards or beliefs.", example: "Her heterodox reading of Ariès generated the only real argument in the room.", context: "academic", tags: ["ideas", "history"] },
-  { word: "stentorian", pronunciation: "sten-TOR-ee-un", pos: "adjective", definition: "Loud and powerful in voice.", example: "His stentorian delivery commanded the lecture hall even without a microphone.", context: "general", tags: ["speech", "presence"] },
-  { word: "propitiate", pronunciation: "pro-PISH-ee-ate", pos: "verb", definition: "To win or regain the favor of someone by doing something to please them.", example: "The administration tried to propitiate faculty by adding a committee seat that held no actual power.", context: "general", tags: ["politics", "diplomacy"] },
-  { word: "ennui", pronunciation: "on-WEE", pos: "noun", definition: "A feeling of listlessness and dissatisfaction arising from a lack of occupation or excitement.", example: "By the third day of the conference, ennui had settled over the graduate students like weather.", context: "general", tags: ["mood"] },
-  { word: "equivocate", pronunciation: "ih-KWIV-oh-kate", pos: "verb", definition: "To use ambiguous language to conceal the truth or avoid committing to a position.", example: "When pressed on the timeline, the department chair equivocated and called it 'ongoing.'", context: "general/legal", tags: ["speech", "deception"] },
-  { word: "bonhomie", pronunciation: "BON-oh-mee", pos: "noun", definition: "Cheerful friendliness; geniality.", example: "His bonhomie at conferences masked how seriously he took the intellectual competition.", context: "general", tags: ["character", "social"] },
-  { word: "zephyr", pronunciation: "ZEF-er", pos: "noun", definition: "A soft, gentle breeze.", example: "The archive was stuffy even with the windows open, not so much as a zephyr.", context: "general", tags: ["nature", "atmosphere"] },
-  { word: "anachronism", pronunciation: "an-AK-roh-niz-um", pos: "noun", definition: "A thing belonging or appropriate to a period other than that in which it exists.", example: "Applying modern consent frameworks to seventeenth-century apprenticeship is not an anachronism if you are careful about it.", context: "academic/history", tags: ["history", "methodology"] },
-  { word: "orotund", pronunciation: "OR-oh-tund", pos: "adjective", definition: "Imposing in sound, or pompously inflated in speech.", example: "The orotund prose buried a fairly thin argument.", context: "academic/writing", tags: ["writing", "critique"] },
-  { word: "malinger", pronunciation: "mah-LING-er", pos: "verb", definition: "To exaggerate or fake illness to escape duty or work.", example: "The institution was not incompetent — it was malingering, deliberately slow to avoid accountability.", context: "general", tags: ["behavior", "critique"] },
-  { word: "persiflage", pronunciation: "PER-sih-flahzh", pos: "noun", definition: "Light, playful banter or teasing conversation.", example: "The persiflage in the seminar hallway was always more honest than what got said at the table.", context: "general", tags: ["social", "speech"] },
-  { word: "cloying", pronunciation: "KLOY-ing", pos: "adjective", definition: "Excessively sweet, rich, or sentimental to a sickening degree.", example: "The documentary's cloying score undermined what were actually disturbing facts.", context: "general/writing", tags: ["critique", "tone"] },
-  { word: "ululation", pronunciation: "yoo-lyoo-LAY-shun", pos: "noun", definition: "A long, wavering, high-pitched vocal sound made as an expression of strong emotion.", example: "The ululation that swept through the crowd was grief and celebration at the same time.", context: "general/cultural", tags: ["sound", "culture"] },
-  { word: "lacunae", pronunciation: "lah-KYOO-nee", pos: "noun (plural)", definition: "Gaps or missing portions in a text, argument, or historical record.", example: "The lacunae in the Congressional record are as revealing as what was actually documented.", context: "academic/history", tags: ["methodology", "history"] },
-  { word: "reify", pronunciation: "REE-ih-fy", pos: "verb", definition: "To treat an abstraction as if it were a concrete, material thing.", example: "The legislation reified a moral panic about childhood that had no evidentiary basis.", context: "academic/theory", tags: ["theory", "critique"] },
-  { word: "palimpsest", pronunciation: "PAL-imp-sest", pos: "noun", definition: "Something altered or reused but still bearing visible traces of its earlier form.", example: "The 1977 platform was a palimpsest — every prior decade's argument was still legible beneath the new language.", context: "academic/history", tags: ["history", "metaphor"] },
-  { word: "liminal", pronunciation: "LIM-ih-nul", pos: "adjective", definition: "Occupying a transitional or in-between position.", example: "Children in American law have always occupied a liminal status, claimed by the family, the state, and increasingly by themselves.", context: "academic/theory", tags: ["theory", "childhood"] },
-  { word: "subaltern", pronunciation: "SUB-ul-turn", pos: "noun/adjective", definition: "A person or group outside dominant power structures, unable to fully represent themselves.", example: "Children are the clearest subaltern category in legal history — their interests have been proxied by every institution except themselves.", context: "academic/theory", tags: ["theory", "power"] },
-  { word: "teleological", pronunciation: "teh-lee-oh-LOJ-ih-kul", pos: "adjective", definition: "Explaining events in terms of a predetermined end or purpose.", example: "A teleological reading of child labor reform makes it look inevitable; the archives say otherwise.", context: "academic/history", tags: ["methodology", "theory"] },
-  { word: "tendentious", pronunciation: "ten-DEN-shus", pos: "adjective", definition: "Promoting a particular point of view; biased.", example: "The report was tendentious from the first paragraph — the conclusion was written before the research was done.", context: "academic/general", tags: ["critique", "methodology"] },
-  { word: "mordant", pronunciation: "MOR-dunt", pos: "adjective", definition: "Sharply critical or sarcastic in a biting way.", example: "Her mordant footnotes were more entertaining than the main text.", context: "general/writing", tags: ["tone", "critique"] },
-  { word: "pellucid", pronunciation: "peh-LOO-sid", pos: "adjective", definition: "Translucently clear; easily understood.", example: "The argument was pellucid, which made the committee's confusion genuinely puzzling.", context: "academic/writing", tags: ["writing", "clarity"] },
-  { word: "quotidian", pronunciation: "kwoh-TID-ee-un", pos: "adjective", definition: "Of or occurring every day; ordinary and mundane.", example: "The history of childhood is buried in quotidian records — school rolls, church registers, court proceedings.", context: "academic/general", tags: ["history", "everyday"] },
-  { word: "autochthonous", pronunciation: "aw-TOK-thuh-nus", pos: "adjective", definition: "Indigenous or native to a particular place.", example: "The Trokosi system was not an autochthonous tradition — it evolved in response to specific economic pressures.", context: "academic/history", tags: ["West Africa", "methodology"] },
-  { word: "epistemic", pronunciation: "ep-ih-STEE-mik", pos: "adjective", definition: "Relating to knowledge or the conditions required for knowledge.", example: "The epistemic problem with colonial archives is that they document oversight, not experience.", context: "academic/theory", tags: ["theory", "methodology"] },
-  { word: "precarious", pronunciation: "preh-KAIR-ee-us", pos: "adjective", definition: "Dependent on chance; uncertain and potentially dangerous.", example: "Children's legal standing in the nineteenth century was precarious at best, contingent entirely on parental status.", context: "general/academic", tags: ["childhood", "law"] },
-  { word: "promulgate", pronunciation: "PROM-ul-gate", pos: "verb", definition: "To make a decree or law widely known by official announcement.", example: "The committee promulgated guidelines that had no enforcement mechanism attached to them.", context: "academic/legal", tags: ["law", "politics"] },
-  { word: "hagiographer", pronunciation: "hay-gee-OG-ruh-fer", pos: "noun", definition: "A writer who treats their subject with undue reverence; originally a writer of saints' lives.", example: "Every movement eventually produces its hagiographers, people more interested in mythology than history.", context: "general/academic", tags: ["writing", "critique", "history"] },
-  { word: "hoi polloi", pronunciation: "hoy puh-LOY", pos: "noun", definition: "The general public; the masses (often used with a tone of condescension).", example: "The policy was designed to look bold to the hoi polloi while changing nothing for those with access.", context: "general", tags: ["social", "politics"] },
-  { word: "eirenicon", pronunciation: "eye-REEN-ih-kon", pos: "noun", definition: "A proposal designed to achieve peace or reconciliation.", example: "The committee chair circulated an eirenicon that managed to irritate both factions equally.", context: "general/academic", tags: ["diplomacy", "politics"] },
-  { word: "fustian", pronunciation: "FUS-chun", pos: "noun/adjective", definition: "Pompous or inflated language; or a thick twilled cloth.", example: "The manifesto was pure fustian — loud, self-serious, and empty on inspection.", context: "general/writing", tags: ["language", "critique"] },
-  { word: "apocryphal", pronunciation: "ah-POK-rih-ful", pos: "adjective", definition: "Of doubtful authenticity; widely circulated but probably not true.", example: "The story of his conversion was apocryphal, but people repeated it because it was useful.", context: "general/academic", tags: ["history", "critique"] },
-  { word: "extant", pronunciation: "EK-stant", pos: "adjective", definition: "Still in existence; surviving.", example: "Only three extant letters document the entire correspondence between them.", context: "academic/history", tags: ["history", "archives"] },
-  { word: "ratiocination", pronunciation: "rash-ee-oh-sih-NAY-shun", pos: "noun", definition: "The process of logical reasoning; forming judgments through careful inference.", example: "His ratiocination was flawless on paper, but he had started from a false premise.", context: "academic/general", tags: ["logic", "intellect"] },
-  { word: "proscribe", pronunciation: "pro-SKRYBE", pos: "verb", definition: "To forbid or condemn something, especially by law or authority.", example: "The school board proscribed the text without reading it, which guaranteed every student would.", context: "general/legal", tags: ["law", "authority"] },
-  { word: "boondoggle", pronunciation: "BOON-dog-ul", pos: "noun", definition: "Work or activity that is wasteful or pointless but gives the appearance of having value.", example: "The feasibility study was a boondoggle — three consultants, six months, and a report no one acted on.", context: "general", tags: ["critique", "work"] },
-  { word: "neoteric", pronunciation: "nee-oh-TAIR-ik", pos: "adjective", definition: "Recent in origin; modern.", example: "The department treated his neoteric methods with suspicion, which is how all departments treat new methods.", context: "academic/general", tags: ["ideas", "critique"] },
-  { word: "raillery", pronunciation: "RAY-luh-ree", pos: "noun", definition: "Good-humored teasing or joking.", example: "The raillery between them at dinner was so practiced it had become a kind of affection.", context: "general", tags: ["social", "speech"] },
-  { word: "jocose", pronunciation: "joh-KOHS", pos: "adjective", definition: "Playful or humorous; fond of joking.", example: "His jocose manner at the reception masked genuine discomfort with the occasion.", context: "general", tags: ["character", "social"] },
-  { word: "divagation", pronunciation: "dy-vuh-GAY-shun", pos: "noun", definition: "A digression or wandering from the main subject.", example: "The lecture was brilliant in places, but the divagations in the middle lost half the room.", context: "general/academic", tags: ["speech", "writing"] },
-  { word: "zugzwang", pronunciation: "TSOOG-tsvang", pos: "noun", definition: "A situation in which any move worsens your position; being compelled to act when inaction would be preferable.", example: "By the third hearing, the administration was in zugzwang — every response made things worse.", context: "general", tags: ["strategy", "politics"] },
-  { word: "miasma", pronunciation: "my-AZ-muh", pos: "noun", definition: "An unpleasant or oppressive atmosphere; originally believed to be a disease-causing vapor.", example: "A miasma of institutional distrust had settled over the department after the audit.", context: "general/academic", tags: ["atmosphere", "critique"] },
-  { word: "consigliere", pronunciation: "kon-sil-YAY-ray", pos: "noun", definition: "A trusted advisor, especially one who operates behind the scenes.", example: "She was never in the official title but functioned as the dean's consigliere on every contentious decision.", context: "general", tags: ["politics", "social"] },
-  { word: "milieu", pronunciation: "meel-YUH", pos: "noun", definition: "A person's social environment or the surrounding conditions.", example: "You cannot read the NWC proceedings without understanding the milieu that produced them.", context: "academic/general", tags: ["context", "social", "history"] },
-  { word: "nescience", pronunciation: "NEH-see-ence", pos: "noun", definition: "Lack of knowledge; ignorance.", example: "His confidence was in direct proportion to his nescience, which is more common than it should be.", context: "general/academic", tags: ["intellect", "critique"] },
-  { word: "implacable", pronunciation: "im-PLAK-uh-bul", pos: "adjective", definition: "Unable to be appeased or placated; relentless.", example: "The opposition was implacable — no compromise, no negotiation, no process.", context: "general", tags: ["character", "conflict"] },
-  { word: "inexorable", pronunciation: "in-EK-sor-uh-bul", pos: "adjective", definition: "Impossible to stop or prevent; relentless.", example: "The inexorable consolidation of parental rights over children's voices ran through every case she studied.", context: "academic/general", tags: ["law", "history", "power"] },
-  { word: "eudaimonia", pronunciation: "yoo-dy-MOH-nee-uh", pos: "noun", definition: "Human flourishing; the highest human good in Aristotelian philosophy.", example: "The policy framework gestured at children's eudaimonia while actually protecting adult interests.", context: "academic/philosophy", tags: ["philosophy", "childhood", "theory"] },
-  { word: "foment", pronunciation: "foh-MENT", pos: "verb", definition: "To instigate or stir up unrest, rebellion, or strong emotion.", example: "The pamphlet was designed to foment dissent, and it worked better than anyone expected.", context: "general/history", tags: ["politics", "conflict"] },
-  { word: "zeitnot", pronunciation: "TSYT-note", pos: "noun", definition: "Time pressure; urgency caused by a lack of time (from chess).", example: "He wrote the last two chapters in zeitnot and it showed.", context: "general", tags: ["work", "pressure"] },
-  { word: "blatherskite", pronunciation: "BLATH-er-skyte", pos: "noun", definition: "A person who talks at length without making much sense.", example: "The panel's last speaker was a blatherskite — twenty minutes of noise with no discernible argument.", context: "general", tags: ["critique", "speech"] },
-  { word: "gelid", pronunciation: "JEL-id", pos: "adjective", definition: "Icy cold.", example: "The reception was gelid — polite smiles, no warmth, everyone waiting to leave.", context: "general", tags: ["atmosphere", "character"] },
-  { word: "xenial", pronunciation: "ZEE-nee-ul", pos: "adjective", definition: "Of or relating to hospitality; friendly to strangers.", example: "The department's xenial reputation drew applicants from programs with far better rankings.", context: "general/academic", tags: ["social", "character"] },
-  { word: "zeugma", pronunciation: "ZOOG-muh", pos: "noun", definition: "A figure of speech in which a word applies to multiple parts of a sentence in different ways.", example: "The sentence was a zeugma — she left the room and her patience at the same time.", context: "writing/general", tags: ["rhetoric", "writing"] },
-  { word: "coruscate", pronunciation: "KOR-uh-skate", pos: "verb", definition: "To flash or sparkle; to display brilliance.", example: "His prose coruscated when he wrote about places he actually knew.", context: "writing/general", tags: ["writing", "brilliance"] },
-  { word: "lucubration", pronunciation: "loo-kyoo-BRAY-shun", pos: "noun", definition: "Laborious study or writing, especially done late at night.", example: "The dissertation was the product of years of lucubration — much of it between midnight and three.", context: "academic/general", tags: ["work", "writing", "study"] },
-  { word: "maudlin", pronunciation: "MAWD-lin", pos: "adjective", definition: "Self-pityingly or tearfully sentimental, often through drink.", example: "The memoir slipped into maudlin territory whenever it reached the years he most needed to examine clearly.", context: "general/writing", tags: ["tone", "critique", "emotion"] },
-  { word: "codswallop", pronunciation: "KODZ-wol-up", pos: "noun", definition: "Nonsense; utter rubbish.", example: "The argument sounded technical, but it was codswallop once you checked the sources.", context: "general", tags: ["critique", "speech"] },
-  { word: "copacetic", pronunciation: "koh-puh-SET-ik", pos: "adjective", definition: "In excellent order; completely satisfactory.", example: "Everything seemed copacetic until the second reviewer's comments arrived.", context: "general", tags: ["approval", "general"] },
-  { word: "fulgurate", pronunciation: "FUL-gyuh-rate", pos: "verb", definition: "To flash like lightning; to emit sudden brilliance.", example: "The argument fulguratedthrough the essay — sharp, fast, and gone before you could fully track it.", context: "writing/general", tags: ["writing", "brilliance"] },
-  { word: "caducity", pronunciation: "kuh-DYOO-sih-tee", pos: "noun", definition: "The frailty that comes with old age; perishability.", example: "The legal framework showed its caducity the moment it was applied to a century it was not built for.", context: "academic/general", tags: ["law", "age", "critique"] },
-  { word: "cachinnate", pronunciation: "KAK-ih-nate", pos: "verb", definition: "To laugh loudly and immoderately.", example: "He cachinnated at his own joke, which made the silence from everyone else more pointed.", context: "general", tags: ["behavior", "social"] },
-  { word: "hermeneutic", pronunciation: "her-meh-NOO-tik", pos: "adjective/noun", definition: "Relating to interpretation, especially of texts or scripture; the theory and methodology of interpretation.", example: "The hermeneutic challenge with these records is that they were written by administrators, not children.", context: "academic/history", tags: ["methodology", "theory", "history"] },
-  { word: "repartee", pronunciation: "rep-ar-TEE", pos: "noun", definition: "Conversation or speech characterized by quick, witty exchanges.", example: "His repartee in seminars was sharp enough that people forgot he had not always done the reading.", context: "general", tags: ["speech", "wit"] },
-  { word: "reliquary", pronunciation: "REL-ih-kwer-ee", pos: "noun", definition: "A container for holy relics; by extension, anything that preserves something of the past.", example: "The archive functions as a reliquary — what it preserves says as much about the institution as about the records.", context: "academic/history", tags: ["archives", "history", "metaphor"] },
-  { word: "achromatic", pronunciation: "ay-kroh-MAT-ik", pos: "adjective", definition: "Without color; transmitting light without chromatic aberration.", example: "The policy language was achromatic by design — drained of specificity so it could offend no one.", context: "general/academic", tags: ["critique", "language"] },
-  { word: "sforzando", pronunciation: "sfor-TSAN-doh", pos: "adjective/adverb", definition: "With sudden emphasis or force (from music; used metaphorically).", example: "The final chapter landed sforzando — everything quiet and then the argument all at once.", context: "writing/general", tags: ["writing", "tone", "music"] },
-  { word: "poniard", pronunciation: "PON-yard", pos: "noun", definition: "A small, slim dagger.", example: "The review was a poniard — brief, precise, and delivered without ceremony.", context: "general", tags: ["conflict", "metaphor"] },
-  { word: "cicatrix", pronunciation: "SIK-uh-triks", pos: "noun", definition: "A scar left by a healed wound.", example: "The institutional cicatrix from the lawsuit was still visible twenty years later in how the department ran itself.", context: "general/academic", tags: ["history", "metaphor", "healing"] },
-  { word: "nimiety", pronunciation: "nih-MY-ih-tee", pos: "noun", definition: "An excess; too great a quantity of something.", example: "The report suffered from nimiety — every point made three times, every qualification doubled.", context: "academic/writing", tags: ["writing", "critique"] },
-  { word: "encomium", pronunciation: "en-KOH-mee-um", pos: "noun", definition: "A speech or piece of writing that praises someone or something highly.", example: "The tenure letter was an encomium so lavish it probably hurt the candidate more than it helped.", context: "academic/general", tags: ["writing", "praise"] },
-  { word: "aestival", pronunciation: "ES-tih-vul", pos: "adjective", definition: "Relating to or appearing in summer.", example: "The aestival slowness of the city made June feel like a different place entirely.", context: "general", tags: ["seasons", "atmosphere"] },
-  { word: "sidereal", pronunciation: "sy-DEER-ee-ul", pos: "adjective", definition: "Of or relating to the stars; measured by the stars.", example: "The historian's perspective was almost sidereal — so long a view that individual suffering disappeared into pattern.", context: "academic/general", tags: ["perspective", "metaphor"] },
-  { word: "tessellation", pronunciation: "tes-uh-LAY-shun", pos: "noun", definition: "An arrangement of shapes that fit together without gaps or overlaps.", example: "The three legal models formed a tessellation — each claiming territory the others left uncovered.", context: "academic/general", tags: ["theory", "structure", "metaphor"] },
-  { word: "mephitic", pronunciation: "meh-FIT-ik", pos: "adjective", definition: "Foul-smelling; poisonous; noxious.", example: "The mephitic logic of the argument infected every position it touched.", context: "general/academic", tags: ["critique", "metaphor"] },
-  { word: "insentient", pronunciation: "in-SEN-shent", pos: "adjective", definition: "Lacking sensation or consciousness; unfeeling.", example: "The law treated children as insentient objects of policy rather than people with interests of their own.", context: "academic/general", tags: ["law", "childhood", "critique"] },
-  { word: "naumarchy", pronunciation: "NAW-mar-kee", pos: "noun", definition: "Command of a naval fleet; a naval battle.", example: "He described the faculty meeting as a naumarchy — everyone armed, no one quite sure who was winning.", context: "general", tags: ["conflict", "metaphor"] },
-  { word: "turbulent", pronunciation: "TUR-byuh-lent", pos: "adjective", definition: "Characterized by conflict, disorder, or confusion.", example: "The turbulent second session of the conference produced the only language that actually mattered.", context: "general", tags: ["conflict", "atmosphere"] },
-  { word: "prelacy", pronunciation: "PREL-uh-see", pos: "noun", definition: "The office or authority of a prelate; church government by bishops.", example: "The organization had all the hierarchy of a prelacy and none of the transparency.", context: "academic/general", tags: ["institution", "power"] },
-  { word: "largesse", pronunciation: "lar-JESS", pos: "noun", definition: "Generosity in giving; a gift given generously.", example: "The fellowship was framed as largesse, which obscured the intellectual labor it was actually purchasing.", context: "general/academic", tags: ["money", "power", "social"] },
-  { word: "aggrandize", pronunciation: "uh-GRAN-dyze", pos: "verb", definition: "To increase the power, wealth, or status of someone, often excessively.", example: "The new title aggrandized the position without adding any actual authority.", context: "general", tags: ["power", "politics"] },
-  { word: "amenable", pronunciation: "uh-MEE-nuh-bul", pos: "adjective", definition: "Open and responsive to suggestion; willing to cooperate.", example: "She was amenable to revisions, which made the editorial relationship workable.", context: "general", tags: ["character", "diplomacy"] },
-  { word: "incunabula", pronunciation: "in-kyoo-NAB-yuh-luh", pos: "noun (plural)", definition: "Early printed books, especially those produced before 1501; the earliest stage of something.", example: "The incunabula of the child rights movement are buried in pamphlets that most archives have not catalogued.", context: "academic/history", tags: ["history", "archives"] },
-  { word: "xeric", pronunciation: "ZEER-ik", pos: "adjective", definition: "Characterized by or adapted to dry conditions.", example: "The intellectual climate of the department was xeric — sparse, and hostile to anything that needed sustained nourishment.", context: "general", tags: ["atmosphere", "metaphor"] },
-  { word: "vellichor", pronunciation: "VEL-ih-kor", pos: "noun", definition: "The strange wistfulness of used bookstores (coined by The Dictionary of Obscure Sorrows).", example: "He felt it every time he walked into an archive — vellichor, the weight of all those unread records.", context: "general", tags: ["emotion", "books"] },
-  { word: "faradiddle", pronunciation: "FAIR-uh-did-ul", pos: "noun", definition: "Trivial or foolish talk; nonsense.", example: "The policy consultation was faradiddle — a formal process designed to produce a predetermined result.", context: "general", tags: ["critique", "speech"] },
-  { word: "pluviose", pronunciation: "PLOO-vee-ohs", pos: "adjective", definition: "Rainy; characterized by heavy rainfall.", example: "The pluviose spring kept everyone inside, which turned out to be productive.", context: "general", tags: ["weather", "atmosphere"] },
-  { word: "surcease", pronunciation: "sur-SEES", pos: "noun/verb", definition: "Cessation; relief or end from something painful or difficult.", example: "There was no surcease from the revision requests — each round produced three more.", context: "general/writing", tags: ["relief", "work"] },
-  { word: "squalid", pronunciation: "SKWOL-id", pos: "adjective", definition: "Extremely dirty and unpleasant; characterized by poverty or moral corruption.", example: "The institutional neglect was squalid in its indifference — systemic, documented, and ignored.", context: "general/academic", tags: ["critique", "conditions"] },
-  { word: "palpable", pronunciation: "PAL-puh-bul", pos: "adjective", definition: "Able to be touched or felt; so intense as to be almost tangible.", example: "The tension in the room was palpable — every pause in the conversation loaded with what no one would say.", context: "general", tags: ["atmosphere", "intensity"] },
-  { word: "sortition", pronunciation: "sor-TISH-un", pos: "noun", definition: "Selection by lot; random allocation of positions or duties.", example: "Some democratic theorists argue that sortition would produce better legislators than elections do.", context: "academic/politics", tags: ["politics", "democracy"] },
-  { word: "limpid", pronunciation: "LIM-pid", pos: "adjective", definition: "Completely clear and transparent; (of writing) clear and easily understood.", example: "The best archival description is limpid — it tells you exactly what is there without interpretation.", context: "academic/writing", tags: ["clarity", "writing"] },
-  { word: "widdershins", pronunciation: "WID-er-shinz", pos: "adverb", definition: "In a direction contrary to the sun's course; counterclockwise.", example: "The argument moved widdershins through the evidence — against every established interpretation.", context: "general/academic", tags: ["direction", "metaphor"] },
-  { word: "borborygmus", pronunciation: "bor-boh-RIG-mus", pos: "noun", definition: "A rumbling noise made by gas moving through the intestines.", example: "He delivered the entire objection in a low rumble, like institutional borborygmus before a real eruption.", context: "general", tags: ["body", "humor"] },
-  { word: "preprandial", pronunciation: "pree-PRAN-dee-ul", pos: "adjective", definition: "Taking place before a meal.", example: "The preprandial conversation was sharper than anything said at the table.", context: "general", tags: ["social", "meals"] },
-  { word: "verklempt", pronunciation: "fer-KLEMPT", pos: "adjective", definition: "Overcome with emotion; too emotional to speak.", example: "He tried to respond to the award and went verklempt, which was more convincing than any speech would have been.", context: "general", tags: ["emotion", "speech"] },
-  { word: "argot", pronunciation: "AR-goh", pos: "noun", definition: "The specialized vocabulary or jargon of a particular group.", example: "Academic argot can clarify or obscure, and it often does both at once.", context: "academic/general", tags: ["language", "community"] },
-  { word: "ahimsa", pronunciation: "ah-HIM-sah", pos: "noun", definition: "The principle of non-violence toward all living things, central to Hindu and Buddhist ethics.", example: "The movement's ahimsa was strategic as much as principled — nonviolence as a political instrument.", context: "academic/general", tags: ["philosophy", "ethics", "history"] },
-  { word: "perorate", pronunciation: "PER-uh-rate", pos: "verb", definition: "To speak at length, especially to conclude a speech with a formal summary.", example: "He began to perorate around the forty-minute mark, which meant the argument was over.", context: "general/academic", tags: ["speech", "rhetoric"] },
-  { word: "echolalia", pronunciation: "ek-oh-LAY-lee-uh", pos: "noun", definition: "Meaningless repetition of words spoken by others; or compulsive repetition of speech.", example: "The policy document was pure echolalia — the same phrases recycled through twenty pages.", context: "general/academic", tags: ["language", "critique"] },
-  { word: "meliorism", pronunciation: "MEE-lee-or-iz-um", pos: "noun", definition: "The belief that the world can be improved by human effort.", example: "Child advocacy runs on meliorism — the conviction that things can actually get better if you push.", context: "academic/general", tags: ["philosophy", "advocacy", "childhood"] },
-  { word: "noetic", pronunciation: "noh-ET-ik", pos: "adjective", definition: "Of or relating to the mind or intellect.", example: "The shift was noetic before it was institutional — a change in how people thought before it became policy.", context: "academic/philosophy", tags: ["mind", "intellect", "theory"] },
-  { word: "kenopsia", pronunciation: "ken-OP-see-uh", pos: "noun", definition: "The eerie feeling of being in a space that is usually full of people but is now empty.", example: "The archive after hours had a kenopsia to it — the reading room built for a crowd, now holding only you.", context: "general", tags: ["emotion", "atmosphere"] },
-  { word: "goad", pronunciation: "GOHD", pos: "verb/noun", definition: "To provoke or stimulate someone to do something; a stick used to drive cattle.", example: "The ruling was designed to goad the legislature into action, which is an unusual thing for a court to do.", context: "general/legal", tags: ["provocation", "law"] },
-  { word: "conduce", pronunciation: "kun-DYOOS", pos: "verb", definition: "To lead or contribute to a particular outcome.", example: "An adversarial committee structure does not conduce to honest evaluation.", context: "academic/general", tags: ["causation", "logic"] },
-  { word: "effuse", pronunciation: "ih-FYOOZ", pos: "verb", definition: "To give off; to pour out; to be gushingly enthusiastic.", example: "She effused about the project to everyone who would listen, which was its own kind of argument for it.", context: "general", tags: ["emotion", "speech"] },
-  { word: "adventive", pronunciation: "ad-VEN-tiv", pos: "adjective", definition: "Not native to a place; arriving from outside.", example: "The legal concept was adventive — imported wholesale from British equity without examination.", context: "academic/legal", tags: ["law", "history", "origins"] },
-  { word: "stochastic", pronunciation: "stoh-KAS-tik", pos: "adjective", definition: "Randomly determined; having a probability distribution.", example: "The outcomes were not stochastic — the pattern was there once you knew what to look for.", context: "academic/general", tags: ["methodology", "analysis"] },
-  { word: "hypophora", pronunciation: "hy-POF-uh-ruh", pos: "noun", definition: "A rhetorical device where a speaker raises a question and then immediately answers it.", example: "The opening paragraph deployed hypophora — a question, a pause, then the answer the whole essay would defend.", context: "writing/academic", tags: ["rhetoric", "writing"] },
-  { word: "syllogism", pronunciation: "SIL-oh-jiz-um", pos: "noun", definition: "A form of deductive reasoning with a major premise, minor premise, and conclusion.", example: "The argument had the structure of a syllogism and the rigor of a fortune cookie.", context: "academic/general", tags: ["logic", "rhetoric"] },
-  { word: "appellation", pronunciation: "ap-uh-LAY-shun", pos: "noun", definition: "A name or title by which something or someone is known.", example: "The appellation 'child advocate' covered an enormous range of actual positions.", context: "general/academic", tags: ["language", "identity"] },
-  { word: "cromulent", pronunciation: "KROM-yoo-lent", pos: "adjective", definition: "Acceptable; fine; used to humorously validate something of questionable worth.", example: "The methodology was cromulent by the standards of its moment, which is not the same as being sound.", context: "general", tags: ["humor", "critique"] },
-  { word: "obiter dictum", pronunciation: "OH-bih-ter DIK-tum", pos: "noun", definition: "An incidental remark or observation; in law, a judge's opinion not essential to the decision.", example: "What began as an obiter dictum in the 1944 ruling became the framework for every case that followed.", context: "legal/academic", tags: ["law", "language"] },
-  { word: "sanguine", pronunciation: "SANG-gwin", pos: "adjective", definition: "Optimistic, especially in a difficult situation.", example: "She remained sanguine about the timeline even after the third extension, which was either confidence or denial.", context: "general", tags: ["character", "attitude"] },
-  { word: "emolument", pronunciation: "ih-MOL-yoo-ment", pos: "noun", definition: "Compensation received for employment or service; salary and fees.", example: "The emoluments were modest, but the institutional affiliation was worth more than the pay.", context: "general/legal", tags: ["work", "money", "law"] },
-  { word: "prognosticate", pronunciation: "prog-NOS-tih-kate", pos: "verb", definition: "To foretell or predict based on present signs.", example: "Historians are poorly positioned to prognosticate, which has never stopped them from trying.", context: "academic/general", tags: ["prediction", "methodology"] },
-  { word: "commodious", pronunciation: "kuh-MOH-dee-us", pos: "adjective", definition: "Roomy and comfortable.", example: "The reading room was commodious in a way the rest of the building was not — high ceilings, good light, actual space.", context: "general", tags: ["space", "comfort"] },
-  { word: "epideictic", pronunciation: "ep-ih-DIK-tik", pos: "adjective", definition: "Relating to rhetoric designed for display or demonstration rather than persuasion.", example: "The keynote was epideictic — beautifully constructed, genuinely moving, and entirely non-committal.", context: "academic/writing", tags: ["rhetoric", "writing"] },
-  { word: "sensorium", pronunciation: "sen-SOR-ee-um", pos: "noun", definition: "The parts of the brain that receive and process sensory information; the whole sensory apparatus.", example: "The archive overwhelms the sensorium — smell, texture, light, all carrying information the finding aid cannot.", context: "academic/general", tags: ["perception", "archives"] },
-  { word: "dilettante", pronunciation: "dil-uh-TONT", pos: "noun", definition: "A person who cultivates an interest without real commitment or expertise; a dabbler.", example: "He had published enough to escape the dilettante label, but not enough to silence it completely.", context: "academic/general", tags: ["expertise", "critique"] },
-  { word: "chthonic", pronunciation: "THON-ik", pos: "adjective", definition: "Of or relating to the underworld; dwelling beneath the earth.", example: "The archive held a chthonic archive — records buried so deep in the finding system no one had touched them.", context: "academic/general", tags: ["metaphor", "depth", "history"] },
-  { word: "blandishment", pronunciation: "BLAN-dish-ment", pos: "noun", definition: "A flattering or pleasing statement used to coax or persuade.", example: "No amount of blandishment would move the committee once the vote count was clear.", context: "general", tags: ["persuasion", "diplomacy"] },
-  { word: "mollify", pronunciation: "MOL-ih-fy", pos: "verb", definition: "To reduce the severity of something; to appease someone who is angry.", example: "The revised offer was designed to mollify the most vocal critics while changing nothing structural.", context: "general", tags: ["diplomacy", "conflict"] },
-  { word: "torpid", pronunciation: "TOR-pid", pos: "adjective", definition: "Mentally or physically inactive; sluggish.", example: "The second semester made everyone torpid — same arguments, same reading list, same stale disagreements.", context: "general", tags: ["inactivity", "critique"] },
-  { word: "gauche", pronunciation: "GOHSH", pos: "adjective", definition: "Lacking social grace; tactless or awkward.", example: "It was gauche to cite your own unpublished work that prominently, and everyone in the room noticed.", context: "general", tags: ["social", "behavior"] },
-  { word: "gaffe", pronunciation: "GAF", pos: "noun", definition: "An embarrassing social blunder.", example: "The opening remarks contained a gaffe so obvious that it became the only thing anyone discussed afterward.", context: "general", tags: ["social", "behavior"] },
-  { word: "laconic", pronunciation: "lah-KON-ik", pos: "adjective", definition: "Using very few words; brief and concise in expression.", example: "His feedback was laconic — one line, three words, and somehow the most useful note of the batch.", context: "general/writing", tags: ["speech", "writing", "brevity"] },
-  { word: "turpitude", pronunciation: "TUR-pih-tood", pos: "noun", definition: "Wickedness or depravity; shameful conduct.", example: "The tribunal found no moral turpitude, which was the narrowest possible acquittal.", context: "legal/academic", tags: ["law", "ethics", "morality"] },
-  { word: "culpable", pronunciation: "KUL-puh-bul", pos: "adjective", definition: "Deserving blame or censure for a fault or wrongdoing.", example: "The institution was culpable not because it acted, but because it refused to.", context: "legal/academic", tags: ["law", "accountability"] },
-  { word: "obviate", pronunciation: "OB-vee-ate", pos: "verb", definition: "To remove a difficulty or objection; to prevent something from being necessary.", example: "A clear methodology section would have obviated half the committee's objections.", context: "academic/general", tags: ["problem-solving", "writing"] },
-  { word: "vagary", pronunciation: "VAY-guh-ree", pos: "noun", definition: "An unexpected or inexplicable change in behavior or circumstance.", example: "The funding vagaries of federal grants made long-term planning nearly impossible.", context: "academic/general", tags: ["unpredictability", "work"] },
-  { word: "munificent", pronunciation: "myoo-NIF-ih-sent", pos: "adjective", definition: "More generous than is usual or necessary.", example: "The grant was munificent by any standard, which created its own pressure to produce something proportionate.", context: "general/academic", tags: ["generosity", "money"] },
-  { word: "rapscallion", pronunciation: "rap-SKAL-yun", pos: "noun", definition: "A mischievous person; a rascal.", example: "He described his graduate school self as a rapscallion, which was generous — the word usually applied was worse.", context: "general", tags: ["character", "humor"] },
-  { word: "hebdomadal", pronunciation: "heb-DOM-uh-dul", pos: "adjective", definition: "Occurring or published weekly.", example: "The hebdomadal meetings were mandatory and mostly pointless, which is the standard ratio.", context: "academic/general", tags: ["time", "routine"] },
-  { word: "apposite", pronunciation: "AP-oh-zit", pos: "adjective", definition: "Apt in the circumstances; relevant and appropriate.", example: "The Gault citation was apposite — every word of it applied to what she was arguing.", context: "academic/general", tags: ["relevance", "writing", "law"] },
-  { word: "vouchsafe", pronunciation: "vowch-SAYF", pos: "verb", definition: "To give or grant in a gracious or condescending manner.", example: "The chair vouchsafed a ten-minute response to what had been a two-week objection.", context: "general", tags: ["authority", "condescension"] },
-  { word: "rodomontade", pronunciation: "rod-oh-mon-TAHD", pos: "noun", definition: "Boastful or inflated talk or behavior; bragging.", example: "The opening statement was rodomontade, which was fine for the press conference but fatal in the hearing room.", context: "general", tags: ["speech", "critique", "rhetoric"] },
-  { word: "pleonasm", pronunciation: "PLEE-oh-naz-um", pos: "noun", definition: "The use of more words than necessary to express meaning.", example: "Redundant pleonasm is the most instructive kind — it makes visible what writers usually hide.", context: "writing/academic", tags: ["writing", "rhetoric", "language"] },
-  { word: "adduce", pronunciation: "uh-DYOOS", pos: "verb", definition: "To cite as evidence; to bring forward in argument.", example: "She adduced three cases before the committee could formulate its first objection.", context: "academic/legal", tags: ["law", "argument", "rhetoric"] },
-  { word: "stagiaire", pronunciation: "stah-zhee-AIR", pos: "noun", definition: "A trainee or intern, especially in a professional kitchen or legal context.", example: "He spent two years as a stagiaire before anyone trusted him with a primary source unsupervised.", context: "general", tags: ["work", "training"] },
-  { word: "intercalate", pronunciation: "in-TER-kuh-late", pos: "verb", definition: "To insert something between existing elements; to add a day to a calendar.", example: "She intercalated the new evidence into the argument without disrupting the structure she had already built.", context: "academic/general", tags: ["writing", "structure"] },
-  { word: "voluptuary", pronunciation: "vuh-LUP-choo-er-ee", pos: "noun", definition: "A person devoted to luxury and sensual pleasure.", example: "He read the way a voluptuary eats — slowly, with full attention, tasting every sentence.", context: "general", tags: ["character", "pleasure"] },
-  { word: "erubescent", pronunciation: "er-yoo-BES-ent", pos: "adjective", definition: "Reddening; blushing.", example: "The question produced an erubescent silence — he knew the answer and knew he should not give it.", context: "general", tags: ["emotion", "body"] },
-  { word: "solon", pronunciation: "SOH-lon", pos: "noun", definition: "A wise lawgiver; a legislator of great wisdom (from Solon of Athens).", example: "The committee chair fancied himself a solon, which was not how the rest of the room saw it.", context: "general/history", tags: ["politics", "law", "history"] },
-  { word: "immolate", pronunciation: "IM-oh-late", pos: "verb", definition: "To sacrifice; to kill as a religious offering; to destroy or give up completely.", example: "He immolated the cleaner argument for the more ambitious one, which did not always work.", context: "general/academic", tags: ["sacrifice", "writing"] },
-  { word: "complaisant", pronunciation: "kum-PLAY-zunt", pos: "adjective", definition: "Willing to please others; obligingly agreeable.", example: "The complaisant reviewer passed everything without comment, which helped no one.", context: "general", tags: ["character", "critique"] },
-  { word: "gargoyle", pronunciation: "GAR-goyl", pos: "noun", definition: "A grotesque carved figure; by extension, something unsightly or monstrous.", example: "The footnote was a gargoyle on an otherwise clean argument — necessary structurally but hard to look at.", context: "general", tags: ["metaphor", "writing"] },
-  { word: "avid", pronunciation: "AV-id", pos: "adjective", definition: "Having an intense desire or enthusiasm for something.", example: "She was an avid annotator — no book left her hands without a conversation in the margins.", context: "general", tags: ["character", "reading"] },
-  { word: "vaudeville", pronunciation: "VAWD-vil", pos: "noun", definition: "A theatrical genre of variety entertainment; by extension, a showy and insubstantial performance.", example: "The press conference was pure vaudeville — spectacle without substance.", context: "general", tags: ["performance", "critique"] },
-  { word: "vertigo", pronunciation: "VER-tih-goh", pos: "noun", definition: "A sensation of whirling and loss of balance; disorientation.", example: "Reading three conflicting legal frameworks simultaneously produces a kind of intellectual vertigo.", context: "general/academic", tags: ["sensation", "metaphor"] },
-  { word: "éclat", pronunciation: "ay-KLAH", pos: "noun", definition: "Brilliant display or effect; dazzling success or conspicuous fame.", example: "The paper landed with éclat — cited twice before the conference was over.", context: "general", tags: ["success", "brilliance"] },
-  { word: "kerygma", pronunciation: "keh-RIG-muh", pos: "noun", definition: "The preaching or proclamation of the Christian gospel; the core message being communicated.", example: "Every movement has its kerygma — the irreducible message it will not negotiate away.", context: "academic/general", tags: ["rhetoric", "theology", "communication"] },
-  { word: "ensconce", pronunciation: "en-SKONSS", pos: "verb", definition: "To settle securely or snugly in a place; to establish in a comfortable or safe position.", example: "He had ensconced himself in the corner of the reading room before anyone else arrived.", context: "general", tags: ["comfort", "position"] },
-  { word: "subacid", pronunciation: "sub-AS-id", pos: "adjective", definition: "Slightly sharp or tart in taste or manner; moderately cutting.", example: "Her subacid remarks landed just softly enough that no one could object directly.", context: "general", tags: ["tone", "character"] },
-  { word: "palliate", pronunciation: "PAL-ee-ate", pos: "verb", definition: "To make a disease or its symptoms less severe without removing the cause; to relieve partially.", example: "The policy palliates the symptom without touching the structural condition that produces it.", context: "academic/general", tags: ["medicine", "critique", "law"] },
-  { word: "maquillage", pronunciation: "mak-ee-YAZH", pos: "noun", definition: "Make-up; cosmetics; the art of applying them.", example: "The institutional maquillage was elaborate — rebranding, new letterhead, a fresh website — while the internal culture held.", context: "general", tags: ["appearance", "metaphor"] },
-  { word: "megrim", pronunciation: "MEE-grim", pos: "noun", definition: "A migraine; low spirits; a whim or fad.", example: "The argument had the quality of a megrim — intense while it lasted, gone by morning.", context: "general", tags: ["mood", "health"] },
-  { word: "shoofly", pronunciation: "SHOO-fly", pos: "noun/adjective", definition: "Something designed to divert attention; a distraction or decoy.", example: "The committee's public inquiry was a shoofly — loud, visible, and entirely beside the point.", context: "general", tags: ["deception", "politics"] },
-  { word: "puberulent", pronunciation: "pyoo-BER-yoo-lent", pos: "adjective", definition: "Covered with fine, soft hairs; minutely pubescent.", example: "The document was puberulent with qualifications — soft disclaimers coating every hard claim.", context: "academic/general", tags: ["texture", "metaphor"] },
-  { word: "cicatrice", pronunciation: "SIK-uh-triss", pos: "noun", definition: "A scar left by a healed wound; the mark remaining after tissue has repaired itself.", example: "Every reform leaves a cicatrice on the institution it changes — you can read the history in the damage.", context: "academic/general", tags: ["healing", "history", "metaphor"] },
-  { word: "quidnunc", pronunciation: "KWID-nunk", pos: "noun", definition: "A person who is always eager to know the latest news or gossip; a busybody.", example: "Every department has its quidnunc — the one who knows everything except what is actually happening.", context: "general", tags: ["character", "social"] },
-  { word: "fosterage", pronunciation: "FOS-ter-ij", pos: "noun", definition: "The practice of fostering a child; the condition of being a foster child; nurturing care.", example: "The fosterage system in medieval Ireland created bonds of loyalty that frequently outweighed blood ties.", context: "academic/history", tags: ["childhood", "history", "family"] },
-  { word: "ungettable", pronunciation: "un-GET-uh-bul", pos: "adjective", definition: "Impossible to obtain or reach.", example: "The original parish records were ungettable — the archive had closed and the digitization project had stalled.", context: "general", tags: ["access", "archives"] },
-  { word: "obnubilation", pronunciation: "ob-nyoo-bih-LAY-shun", pos: "noun", definition: "The act of clouding or obscuring; mental confusion or dimming of consciousness.", example: "The jargon produced a kind of obnubilation — the argument was still there somewhere, but unreachable.", context: "academic/general", tags: ["confusion", "language", "critique"] },
-  { word: "amniote", pronunciation: "AM-nee-oht", pos: "noun", definition: "A vertebrate whose embryo develops in an amniotic sac — reptiles, birds, and mammals.", example: "He used the amniote as an analogy — an organism that carries its environment with it from the beginning.", context: "academic/general", tags: ["biology", "metaphor"] },
-  { word: "ictic", pronunciation: "IK-tik", pos: "adjective", definition: "Relating to or caused by a sudden stroke or seizure; also relating to metrical stress in verse.", example: "The rhetorical ictic of the final paragraph hit like a gavel — a deliberate stress at the close.", context: "academic/writing", tags: ["rhetoric", "writing", "rhythm"] },
-  { word: "desultory", pronunciation: "DES-ul-tor-ee", pos: "adjective", definition: "Lacking a plan, purpose, or enthusiasm; disconnected and going from one thing to another.", example: "The desultory reading habits of his first year gave way to something more methodical once comps came into view.", context: "general/academic", tags: ["work", "focus", "critique"] },
-  { word: "yare", pronunciation: "YAIR", pos: "adjective", definition: "Ready; prepared; agile and responsive (archaic/nautical).", example: "The manuscript was yare — clean, tight, ready to go out.", context: "general/writing", tags: ["readiness", "writing"] },
-  { word: "cavil", pronunciation: "KAV-ul", pos: "verb/noun", definition: "To make petty or unnecessary objections; a trivial objection.", example: "The reviewer chose to cavil at the footnotes rather than engage the actual argument.", context: "academic/general", tags: ["critique", "argument"] },
-  { word: "vaticinate", pronunciation: "vah-TIS-ih-nate", pos: "verb", definition: "To foretell; to prophesy.", example: "Scholars who vaticinate about the future of the archive usually know the least about its past.", context: "academic/general", tags: ["prediction", "rhetoric"] },
-];
-
-const MODES = ["flashcard", "quiz", "fill-blank", "usage"];
+/* ── helpers ─────────────────────────────────────────── */
 const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
-const getWrongOptions = (correct, all, count = 3) => {
-  const pool = all.filter(w => w.word !== correct.word);
-  return shuffle(pool).slice(0, count).map(w => w.definition);
-};
 
-const STORAGE_KEY = "lexicon_mastered_v1";
+const getWrongOptions = (correct, all, count = 3) =>
+  shuffle(all.filter(w => w.word !== correct.word)).slice(0, count).map(w => w.definition);
 
-function loadMastered() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch { return new Set(); }
+/* ── localStorage helpers ────────────────────────────── */
+const MASTERED_KEY = "lexicon_mastered_v2";
+const SRS_KEY      = "lexicon_srs_v2";
+
+function loadSet(key)   { try { return new Set(JSON.parse(localStorage.getItem(key) || "[]")); } catch { return new Set(); } }
+function saveSet(key,s) { try { localStorage.setItem(key, JSON.stringify([...s])); } catch {} }
+function loadSRS()      { try { return JSON.parse(localStorage.getItem(SRS_KEY) || "{}"); } catch { return {}; } }
+function saveSRS(obj)   { try { localStorage.setItem(SRS_KEY, JSON.stringify(obj)); } catch {} }
+
+/* ── word-of-the-day (deterministic by date) ─────────── */
+function getWotd(words) {
+  if (!words.length) return null;
+  const day = Math.floor(Date.now() / 86400000);
+  return words[day % words.length];
 }
 
-function saveMastered(set) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...set])); } catch {}
+/* ── SRS deck builder ────────────────────────────────── */
+function buildSRSDeck(words, srsData) {
+  const now = Date.now();
+  const due  = words.filter(w => !srsData[w.word] || srsData[w.word].nextReview <= now);
+  const rest = words.filter(w =>  srsData[w.word] && srsData[w.word].nextReview >  now);
+  return [...shuffle(due), ...shuffle(rest)];
 }
 
+/* ── speech ──────────────────────────────────────────── */
+function speak(word) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(word);
+  u.rate = 0.85;
+  window.speechSynthesis.speak(u);
+}
+
+/* ── constants ───────────────────────────────────────── */
+const MODES   = ["flashcard", "quiz", "fill-blank", "usage"];
+const FILTERS = ["all", "unmastered", "mastered", "academic", "general", "law", "history", "writing"];
+
+/* ── intervals (ms) for SRS boxes ───────────────────── */
+const SRS_INTERVALS = { again: 0, hard: 10 * 60 * 1000, good: 24 * 60 * 60 * 1000, easy: 4 * 24 * 60 * 60 * 1000 };
+
+/* ══════════════════════════════════════════════════════ */
 export default function VocabMaster() {
-  const [mode, setMode] = useState("flashcard");
-  const [deck, setDeck] = useState(() => shuffle(WORDS));
-  const [index, setIndex] = useState(0);
-  const [flipped, setFlipped] = useState(false);
-  const [quizOptions, setQuizOptions] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [score, setScore] = useState({ correct: 0, total: 0 });
-  const [filter, setFilter] = useState("all");
-  const [mastered, setMastered] = useState(() => loadMastered());
+  const [words,      setWords]      = useState([]);
+  const [loading,    setLoading]    = useState(true);
+  const [error,      setError]      = useState(null);
+
+  const [mode,       setMode]       = useState("flashcard");
+  const [deck,       setDeck]       = useState([]);
+  const [index,      setIndex]      = useState(0);
+  const [flipped,    setFlipped]    = useState(false);
+  const [quizOpts,   setQuizOpts]   = useState([]);
+  const [selected,   setSelected]   = useState(null);
+  const [score,      setScore]      = useState({ correct: 0, total: 0 });
+  const [filter,     setFilter]     = useState("all");
+  const [tagFilter,  setTagFilter]  = useState(null);
+  const [mastered,   setMastered]   = useState(() => loadSet(MASTERED_KEY));
+  const [srsData,    setSrsData]    = useState(() => loadSRS());
   const [fillAnswer, setFillAnswer] = useState("");
-  const [fillChecked, setFillChecked] = useState(false);
-  const [streak, setStreak] = useState(0);
-  const [showHint, setShowHint] = useState(false);
-  const [search, setSearch] = useState("");
-  const [showKeys, setShowKeys] = useState(false);
+  const [fillChecked,setFillChecked]= useState(false);
+  const [streak,     setStreak]     = useState(0);
+  const [showHint,   setShowHint]   = useState(false);
+  const [search,     setSearch]     = useState("");
+  const [showKeys,   setShowKeys]   = useState(false);
+  const [wotdOpen,   setWotdOpen]   = useState(true);
 
-  const filteredDeck = deck.filter(w => {
-    if (search) return w.word.toLowerCase().includes(search.toLowerCase()) || w.definition.toLowerCase().includes(search.toLowerCase());
-    if (filter === "all") return true;
-    if (filter === "mastered") return mastered.has(w.word);
-    if (filter === "unmastered") return !mastered.has(w.word);
-    if (filter === "academic") return w.context.includes("academic");
-    if (filter === "general") return w.context.includes("general");
-    if (filter === "law") return w.tags.includes("law") || w.context.includes("legal");
-    if (filter === "history") return w.tags.includes("history");
-    if (filter === "writing") return w.tags.includes("writing");
-    return true;
-  });
+  /* load words.json */
+  useEffect(() => {
+    fetch("words.json")
+      .then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+      .then(data => { setWords(data); setLoading(false); })
+      .catch(e  => { setError(e.message); setLoading(false); });
+  }, []);
 
-  const current = filteredDeck[index % Math.max(filteredDeck.length, 1)];
+  /* rebuild deck when words / filter / tag / search / srsData change */
+  useEffect(() => {
+    if (!words.length) return;
+    let base = words.filter(w => {
+      if (search)     return w.word.toLowerCase().includes(search.toLowerCase()) ||
+                             w.definition.toLowerCase().includes(search.toLowerCase());
+      if (tagFilter)  return w.tags.includes(tagFilter);
+      if (filter === "mastered")   return mastered.has(w.word);
+      if (filter === "unmastered") return !mastered.has(w.word);
+      if (filter === "academic")   return w.context.includes("academic");
+      if (filter === "general")    return w.context.includes("general");
+      if (filter === "law")        return w.tags.includes("law") || w.context.includes("legal");
+      if (filter === "history")    return w.tags.includes("history");
+      if (filter === "writing")    return w.tags.includes("writing");
+      return true;
+    });
+    setDeck(buildSRSDeck(base, srsData));
+    setIndex(0);
+  }, [words, filter, tagFilter, search, srsData, mastered]);
 
+  const filteredLen = deck.length;
+  const current = filteredLen ? deck[index % filteredLen] : null;
+  const wotd = words.length ? getWotd(words) : null;
+
+  /* reset per-card state when card changes */
   useEffect(() => {
     if (!current) return;
-    if (mode === "quiz") {
-      const wrong = getWrongOptions(current, WORDS);
-      setQuizOptions(shuffle([current.definition, ...wrong]));
-    }
-    setSelected(null);
-    setFlipped(false);
-    setFillAnswer("");
-    setFillChecked(false);
-    setShowHint(false);
+    if (mode === "quiz") setQuizOpts(shuffle([current.definition, ...getWrongOptions(current, words)]));
+    setSelected(null); setFlipped(false);
+    setFillAnswer(""); setFillChecked(false); setShowHint(false);
   }, [index, mode, current?.word]);
 
-  const next = useCallback(() => setIndex(i => (i + 1) % filteredDeck.length), [filteredDeck.length]);
-  const prev = useCallback(() => setIndex(i => (i - 1 + filteredDeck.length) % filteredDeck.length), [filteredDeck.length]);
+  /* navigation */
+  const next = useCallback(() => setIndex(i => (i + 1) % Math.max(filteredLen, 1)), [filteredLen]);
+  const prev = useCallback(() => setIndex(i => (i - 1 + Math.max(filteredLen, 1)) % Math.max(filteredLen, 1)), [filteredLen]);
 
+  /* mastered toggle */
   const markMastered = useCallback(() => {
     if (!current) return;
     setMastered(prev => {
       const next = new Set(prev);
       next.has(current.word) ? next.delete(current.word) : next.add(current.word);
-      saveMastered(next);
+      saveSet(MASTERED_KEY, next);
       return next;
     });
   }, [current]);
 
-  useEffect(() => {
-    function handleKey(e) {
-      if (e.target.tagName === "INPUT") return;
-      if (e.key === "ArrowRight") next();
-      else if (e.key === "ArrowLeft") prev();
-      else if (e.key === " ") { e.preventDefault(); setFlipped(f => !f); }
-      else if (e.key === "m" || e.key === "M") markMastered();
+  /* SRS rating */
+  const rateSRS = useCallback((rating) => {
+    if (!current) return;
+    setSrsData(prev => {
+      const next = { ...prev, [current.word]: { nextReview: Date.now() + SRS_INTERVALS[rating], rating } };
+      saveSRS(next);
+      return next;
+    });
+    if (rating !== "again") setTimeout(next, 180);
+    else {
+      /* re-insert 5 cards ahead */
+      setDeck(d => {
+        const copy = [...d];
+        const cur  = copy.splice(index % copy.length, 1)[0];
+        const insertAt = Math.min((index % copy.length) + 5, copy.length);
+        copy.splice(insertAt, 0, cur);
+        return copy;
+      });
     }
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [next, prev, markMastered]);
+  }, [current, index, next]);
 
+  /* keyboard shortcuts */
+  useEffect(() => {
+    function onKey(e) {
+      if (e.target.tagName === "INPUT") return;
+      if (e.key === "ArrowRight")         next();
+      else if (e.key === "ArrowLeft")     prev();
+      else if (e.key === " ")             { e.preventDefault(); setFlipped(f => !f); }
+      else if (e.key === "m" || e.key === "M") markMastered();
+      else if (e.key === "s" || e.key === "S") current && speak(current.word);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [next, prev, markMastered, current]);
+
+  /* quiz handler */
   const handleQuizSelect = (opt) => {
     if (selected !== null) return;
     setSelected(opt);
-    const correct = opt === current.definition;
-    setScore(s => ({ correct: s.correct + (correct ? 1 : 0), total: s.total + 1 }));
-    setStreak(s => correct ? s + 1 : 0);
+    const ok = opt === current.definition;
+    setScore(s => ({ correct: s.correct + (ok ? 1 : 0), total: s.total + 1 }));
+    setStreak(s => ok ? s + 1 : 0);
   };
 
+  /* fill-in handler */
   const checkFill = () => {
     if (!fillAnswer.trim()) return;
     setFillChecked(true);
-    const correct = fillAnswer.trim().toLowerCase() === current.word.toLowerCase();
-    setScore(s => ({ correct: s.correct + (correct ? 1 : 0), total: s.total + 1 }));
-    setStreak(s => correct ? s + 1 : 0);
+    const ok = fillAnswer.trim().toLowerCase() === current.word.toLowerCase();
+    setScore(s => ({ correct: s.correct + (ok ? 1 : 0), total: s.total + 1 }));
+    setStreak(s => ok ? s + 1 : 0);
   };
 
+  /* tag click */
+  const onTagClick = (tag) => {
+    setTagFilter(tag);
+    setFilter("all");
+    setSearch("");
+    setIndex(0);
+  };
+  const clearTagFilter = () => setTagFilter(null);
+
+  /* ── loading / error screens ─── */
+  if (loading) return (
+    <div style={{ display:"flex", justifyContent:"center", alignItems:"center", height:"100vh", background:"#0d0d0d", color:"#6a6050", fontSize:"14px", fontFamily:"Georgia, serif" }}>
+      Loading lexicon…
+    </div>
+  );
+  if (error) return (
+    <div style={{ display:"flex", justifyContent:"center", alignItems:"center", height:"100vh", background:"#0d0d0d", color:"#9e4a4a", fontSize:"14px", fontFamily:"Georgia, serif" }}>
+      Could not load words.json: {error}
+    </div>
+  );
   if (!current) return (
     <div style={{ display:"flex", justifyContent:"center", alignItems:"center", height:"100vh", background:"#0d0d0d", color:"#f0ece4", fontFamily:"Georgia, serif", fontSize:"16px" }}>
-      No cards match that filter. Try another.
+      No cards match that filter.{" "}
+      <button onClick={() => { setFilter("all"); setTagFilter(null); setSearch(""); }}
+        style={{ marginLeft:"10px", background:"none", border:"none", color:"#c8a96e", cursor:"pointer", fontSize:"16px", textDecoration:"underline" }}>
+        Reset
+      </button>
     </div>
   );
 
   const isMastered = mastered.has(current.word);
   const pct = score.total > 0 ? Math.round((score.correct / score.total) * 100) : null;
+  const today = new Date().toLocaleDateString("en-US", { month:"long", day:"numeric" });
+
+  /* ── style shorthands ─── */
+  const btn = (active, activeColor = "#c8a96e") => ({
+    padding: "5px 14px", borderRadius: "4px", border: "1px solid",
+    borderColor: active ? activeColor : "#252525",
+    background:  active ? `${activeColor}12`  : "transparent",
+    color:       active ? activeColor : "#555",
+    fontSize: "12px", cursor: "pointer",
+  });
+  const filterBtn = (f) => btn(filter === f && !search && !tagFilter, "#7a9e7e");
 
   return (
-    <div style={{ minHeight:"100vh", background:"#0d0d0d", color:"#f0ece4", fontFamily:"'Georgia', serif", display:"flex", flexDirection:"column" }}>
+    <div style={{ minHeight:"100vh", background:"#0d0d0d", color:"#f0ece4", fontFamily:"Georgia, serif", display:"flex", flexDirection:"column" }}>
 
-      {/* Header */}
-      <div style={{ padding:"14px 24px 12px", borderBottom:"1px solid #1e1e1e", display:"flex", justifyContent:"space-between", alignItems:"center", background:"#111", flexWrap:"wrap", gap:"8px" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:"16px" }}>
-          <div>
-            <div style={{ fontSize:"10px", letterSpacing:"0.25em", color:"#6a6050", textTransform:"uppercase", marginBottom:"1px" }}>Noah's</div>
-            <div style={{ fontSize:"20px", fontWeight:"bold", letterSpacing:"-0.03em", color:"#f0ece4" }}>Lexicon</div>
-          </div>
+      {/* ── Word of the Day banner ── */}
+      {wotdOpen && wotd && (
+        <div className="wotd-banner" style={{ background:"#111408", borderBottom:"1px solid #2a2800", padding:"10px 24px", display:"flex", alignItems:"center", gap:"12px", flexWrap:"wrap" }}>
+          <span style={{ fontSize:"10px", color:"#6a6030", textTransform:"uppercase", letterSpacing:"0.2em", flexShrink:0 }}>{today} · Word of the Day</span>
+          <span style={{ fontSize:"15px", fontWeight:"bold", color:"#e8d87a" }}>{wotd.word}</span>
+          <span style={{ fontSize:"12px", color:"#8a8050", fontStyle:"italic" }}>{wotd.pronunciation}</span>
+          <span style={{ fontSize:"13px", color:"#b0a878" }}>— {wotd.definition}</span>
+          <button onClick={() => setWotdOpen(false)}
+            style={{ marginLeft:"auto", background:"none", border:"none", color:"#4a4030", cursor:"pointer", fontSize:"16px", lineHeight:1 }}>×</button>
+        </div>
+      )}
+
+      {/* ── Header ── */}
+      <div style={{ padding:"13px 24px 11px", borderBottom:"1px solid #1e1e1e", display:"flex", justifyContent:"space-between", alignItems:"center", background:"#111", flexWrap:"wrap", gap:"8px" }}>
+        <div>
+          <div style={{ fontSize:"10px", letterSpacing:"0.25em", color:"#6a6050", textTransform:"uppercase", marginBottom:"1px" }}>Noah's</div>
+          <div style={{ fontSize:"20px", fontWeight:"bold", letterSpacing:"-0.03em" }}>Lexicon</div>
         </div>
         <div style={{ display:"flex", gap:"14px", alignItems:"center", flexWrap:"wrap" }}>
-          <div style={{ fontSize:"12px", color:"#5a5a5a" }}>{WORDS.length} words</div>
+          <div style={{ fontSize:"12px", color:"#5a5a5a" }}>{words.length} words</div>
           {pct !== null && <div style={{ fontSize:"13px", color:"#c8a96e" }}>{pct}% ({score.correct}/{score.total})</div>}
           {streak >= 3 && <div style={{ background:"#c8a96e15", border:"1px solid #c8a96e55", borderRadius:"6px", padding:"3px 10px", fontSize:"12px", color:"#c8a96e" }}>🔥 {streak}</div>}
           <div style={{ fontSize:"12px", color:"#7a9e7e" }}>{mastered.size} mastered</div>
           <button onClick={() => setShowKeys(k => !k)}
-            style={{ background:"none", border:"1px solid #252525", borderRadius:"4px", color:"#444", fontSize:"11px", padding:"3px 9px", cursor:"pointer" }}
-            title="Keyboard shortcuts">
+            style={{ background:"none", border:"1px solid #252525", borderRadius:"4px", color:"#444", fontSize:"11px", padding:"3px 9px", cursor:"pointer" }}>
             ⌨ keys
           </button>
         </div>
       </div>
 
-      {/* Keyboard hint strip */}
+      {/* ── Keyboard hint strip ── */}
       {showKeys && (
         <div style={{ background:"#111", borderBottom:"1px solid #1a1a1a", padding:"8px 24px", fontSize:"11px", color:"#555", display:"flex", gap:"20px", flexWrap:"wrap" }}>
-          <span><kbd style={{ background:"#1e1e1e", border:"1px solid #333", borderRadius:"3px", padding:"1px 5px", color:"#888" }}>←</kbd> prev</span>
-          <span><kbd style={{ background:"#1e1e1e", border:"1px solid #333", borderRadius:"3px", padding:"1px 5px", color:"#888" }}>→</kbd> next</span>
-          <span><kbd style={{ background:"#1e1e1e", border:"1px solid #333", borderRadius:"3px", padding:"1px 5px", color:"#888" }}>Space</kbd> flip</span>
-          <span><kbd style={{ background:"#1e1e1e", border:"1px solid #333", borderRadius:"3px", padding:"1px 5px", color:"#888" }}>M</kbd> mark mastered</span>
+          {[["←","prev"],["→","next"],["Space","flip"],["M","mastered"],["S","speak"]].map(([k,v]) => (
+            <span key={k}><kbd style={{ background:"#1e1e1e", border:"1px solid #333", borderRadius:"3px", padding:"1px 5px", color:"#888" }}>{k}</kbd> {v}</span>
+          ))}
         </div>
       )}
 
-      {/* Mode bar */}
+      {/* ── Mode + filter bar ── */}
       <div style={{ padding:"10px 24px", borderBottom:"1px solid #191919", display:"flex", gap:"6px", flexWrap:"wrap", alignItems:"center", background:"#0e0e0e" }}>
         {MODES.map(m => (
-          <button key={m} onClick={() => { setMode(m); setIndex(0); }}
-            style={{ padding:"5px 14px", borderRadius:"4px", border:"1px solid", borderColor: mode===m ? "#c8a96e" : "#252525", background: mode===m ? "#c8a96e12" : "transparent", color: mode===m ? "#c8a96e" : "#555", fontSize:"12px", cursor:"pointer", textTransform:"capitalize" }}>
-            {m === "fill-blank" ? "Fill-in" : m === "usage" ? "Usage" : m.charAt(0).toUpperCase() + m.slice(1)}
+          <button key={m} onClick={() => { setMode(m); setIndex(0); }} style={btn(mode === m)}>
+            {m === "fill-blank" ? "Fill-in" : m.charAt(0).toUpperCase() + m.slice(1)}
           </button>
         ))}
         <div style={{ width:"1px", background:"#222", margin:"0 6px", height:"20px" }} />
-        {["all","unmastered","mastered","academic","general","law","history","writing"].map(f => (
-          <button key={f} onClick={() => { setFilter(f); setIndex(0); setSearch(""); }}
-            style={{ padding:"5px 11px", borderRadius:"4px", border:"1px solid", borderColor: filter===f&&!search ? "#7a9e7e" : "#252525", background: filter===f&&!search ? "#7a9e7e12" : "transparent", color: filter===f&&!search ? "#7a9e7e" : "#484848", fontSize:"11px", cursor:"pointer", textTransform:"capitalize" }}>
-            {f}
-          </button>
-        ))}
-        <input value={search} onChange={e => { setSearch(e.target.value); setIndex(0); }} placeholder="Search..."
+        {tagFilter
+          ? <button onClick={clearTagFilter}
+              style={{ padding:"5px 11px", borderRadius:"4px", border:"1px solid #c8a96e", background:"#c8a96e15", color:"#c8a96e", fontSize:"11px", cursor:"pointer" }}>
+              #{tagFilter} ×
+            </button>
+          : FILTERS.map(f => (
+              <button key={f} onClick={() => { setFilter(f); setIndex(0); setSearch(""); }} style={filterBtn(f)}>
+                {f}
+              </button>
+            ))
+        }
+        <input value={search} onChange={e => { setSearch(e.target.value); setIndex(0); setTagFilter(null); }} placeholder="Search…"
           style={{ marginLeft:"auto", background:"#161616", border:"1px solid #2a2a2a", borderRadius:"6px", padding:"5px 12px", color:"#f0ece4", fontSize:"12px", outline:"none", width:"140px" }} />
       </div>
 
-      {/* Progress */}
+      {/* ── Progress bar ── */}
       <div style={{ height:"2px", background:"#181818" }}>
-        <div style={{ height:"100%", background:"#c8a96e44", width:`${((index % filteredDeck.length) / filteredDeck.length) * 100}%`, transition:"width 0.3s" }} />
+        <div style={{ height:"100%", background:"#c8a96e44", width:`${((index % filteredLen) / filteredLen) * 100}%`, transition:"width 0.3s" }} />
       </div>
 
-      {/* Main */}
+      {/* ── Main ── */}
       <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"28px 20px" }}>
 
         {/* Word identity */}
@@ -395,14 +326,30 @@ export default function VocabMaster() {
             </div>
             {isMastered && <span style={{ fontSize:"11px", background:"#c8a96e15", color:"#c8a96e", padding:"2px 8px", borderRadius:"10px", border:"1px solid #c8a96e33" }}>✓ mastered</span>}
           </div>
-          <div style={{ fontSize:"13px", color:"#6a6050", fontStyle:"italic", marginTop:"4px" }}>{current.pronunciation}</div>
+
+          {/* pronunciation + speak button */}
+          <div style={{ display:"flex", alignItems:"center", gap:"8px", justifyContent:"center", marginTop:"4px" }}>
+            <span style={{ fontSize:"13px", color:"#6a6050", fontStyle:"italic" }}>{current.pronunciation}</span>
+            <button onClick={() => speak(current.word)} title="Hear pronunciation (S)"
+              style={{ background:"none", border:"none", cursor:"pointer", color:"#4a4040", fontSize:"15px", padding:"0", lineHeight:1 }}>🔊</button>
+          </div>
+
           <div style={{ fontSize:"10px", color:"#484848", marginTop:"3px", textTransform:"uppercase", letterSpacing:"0.12em" }}>{current.pos}</div>
+
+          {/* tags — click to drill */}
           <div style={{ display:"flex", gap:"6px", justifyContent:"center", marginTop:"8px", flexWrap:"wrap" }}>
-            {current.tags.map(t => <span key={t} style={{ fontSize:"10px", color:"#4a5a4a", border:"1px solid #2a3a2a", borderRadius:"10px", padding:"1px 8px" }}>{t}</span>)}
+            {current.tags.map(t => (
+              <button key={t} onClick={() => onTagClick(t)}
+                style={{ fontSize:"10px", color:"#4a5a4a", border:"1px solid #2a3a2a", borderRadius:"10px", padding:"2px 9px", background:"none", cursor:"pointer", transition:"background 0.15s" }}
+                onMouseEnter={e => e.target.style.background="#2a3a2a"}
+                onMouseLeave={e => e.target.style.background="none"}>
+                #{t}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* FLASHCARD */}
+        {/* ── FLASHCARD ── */}
         {mode === "flashcard" && (
           <div style={{ width:"100%", maxWidth:"560px" }}>
             <div onClick={() => setFlipped(f => !f)}
@@ -420,22 +367,34 @@ export default function VocabMaster() {
                   </div>
               }
             </div>
+
+            {/* SRS buttons — shown after flip */}
+            {flipped && (
+              <div style={{ display:"flex", gap:"8px", marginTop:"12px", justifyContent:"center" }}>
+                {[["again","#9e4a4a","Again"],["hard","#a07840","Hard"],["good","#4a7a8a","Got it"],["easy","#4a8a5a","Easy"]].map(([r, col, label]) => (
+                  <button key={r} onClick={() => rateSRS(r)}
+                    style={{ flex:1, padding:"9px 0", background:`${col}15`, border:`1px solid ${col}55`, borderRadius:"6px", color:col, fontSize:"12px", cursor:"pointer" }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
-        {/* QUIZ */}
+        {/* ── QUIZ ── */}
         {mode === "quiz" && (
           <div style={{ width:"100%", maxWidth:"560px" }}>
             <div style={{ fontSize:"14px", color:"#7a7060", marginBottom:"14px", textAlign:"center" }}>
               Which definition matches <strong style={{ color:"#f0ece4" }}>{current.word}</strong>?
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
-              {quizOptions.map((opt, i) => {
-                const isCorrect = opt === current.definition;
+              {quizOpts.map((opt, i) => {
+                const isCorrect  = opt === current.definition;
                 const isSelected = selected === opt;
                 let bg="#141414", border="#242424", col="#b8b0a0";
                 if (selected !== null) {
-                  if (isCorrect) { bg="#7a9e7e12"; border="#7a9e7e"; col="#7a9e7e"; }
+                  if (isCorrect)       { bg="#7a9e7e12"; border="#7a9e7e"; col="#7a9e7e"; }
                   else if (isSelected) { bg="#9e4a4a12"; border="#9e4a4a"; col="#9e6060"; }
                 }
                 return (
@@ -455,7 +414,7 @@ export default function VocabMaster() {
           </div>
         )}
 
-        {/* FILL IN */}
+        {/* ── FILL IN ── */}
         {mode === "fill-blank" && (
           <div style={{ width:"100%", maxWidth:"560px" }}>
             <div style={{ background:"#141414", border:"1px solid #242424", borderRadius:"12px", padding:"26px", marginBottom:"14px" }}>
@@ -469,12 +428,16 @@ export default function VocabMaster() {
               }
             </div>
             <div style={{ display:"flex", gap:"8px" }}>
-              <input value={fillAnswer} onChange={e => setFillAnswer(e.target.value)} onKeyDown={e => e.key==="Enter" && !fillChecked && checkFill()} placeholder="Type the word..." disabled={fillChecked}
+              <input value={fillAnswer} onChange={e => setFillAnswer(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && !fillChecked && checkFill()}
+                placeholder="Type the word…" disabled={fillChecked}
                 style={{ flex:1, background:"#141414", border:`1px solid ${fillChecked ? (fillAnswer.trim().toLowerCase()===current.word.toLowerCase() ? "#7a9e7e" : "#9e4a4a") : "#2a2a2a"}`, borderRadius:"8px", padding:"11px 14px", color:"#f0ece4", fontSize:"15px", outline:"none" }} />
               {!fillChecked && <button onClick={checkFill} style={{ background:"#c8a96e15", border:"1px solid #c8a96e44", color:"#c8a96e", padding:"11px 18px", borderRadius:"8px", cursor:"pointer", fontSize:"14px" }}>Check</button>}
             </div>
             {fillChecked && (
-              <div style={{ marginTop:"10px", padding:"12px 14px", borderRadius:"8px", background: fillAnswer.trim().toLowerCase()===current.word.toLowerCase() ? "#7a9e7e12" : "#9e4a4a12", border:`1px solid ${fillAnswer.trim().toLowerCase()===current.word.toLowerCase() ? "#7a9e7e33" : "#9e4a4a33"}` }}>
+              <div style={{ marginTop:"10px", padding:"12px 14px", borderRadius:"8px",
+                background: fillAnswer.trim().toLowerCase()===current.word.toLowerCase() ? "#7a9e7e12" : "#9e4a4a12",
+                border:`1px solid ${fillAnswer.trim().toLowerCase()===current.word.toLowerCase() ? "#7a9e7e33" : "#9e4a4a33"}` }}>
                 {fillAnswer.trim().toLowerCase()===current.word.toLowerCase()
                   ? <span style={{ color:"#7a9e7e" }}>Correct.</span>
                   : <span style={{ color:"#c09090" }}>The word was <strong style={{ color:"#f0ece4" }}>{current.word}</strong>.</span>}
@@ -483,12 +446,12 @@ export default function VocabMaster() {
           </div>
         )}
 
-        {/* USAGE */}
+        {/* ── USAGE ── */}
         {mode === "usage" && (
           <div style={{ width:"100%", maxWidth:"560px" }}>
             <div style={{ background:"#141414", border:"1px solid #242424", borderRadius:"12px", padding:"26px", marginBottom:"12px" }}>
               <div style={{ fontSize:"11px", color:"#5a5050", marginBottom:"8px", textTransform:"uppercase", letterSpacing:"0.1em" }}>Use it in a sentence</div>
-              <div style={{ fontSize:"13px", color:"#5a5a5a", marginBottom:"14px" }}>Say or write your own sentence using <strong style={{ color:"#c8a96e" }}>{current.word}</strong>, then reveal the model.</div>
+              <div style={{ fontSize:"13px", color:"#5a5a5a", marginBottom:"14px" }}>Say or write a sentence using <strong style={{ color:"#c8a96e" }}>{current.word}</strong>, then reveal the model.</div>
               <div style={{ fontSize:"11px", color:"#6a6050", marginBottom:"6px" }}>Definition</div>
               <div style={{ fontSize:"15px", color:"#d4c9b8", lineHeight:"1.55" }}>{current.definition}</div>
             </div>
@@ -506,7 +469,7 @@ export default function VocabMaster() {
           </div>
         )}
 
-        {/* Navigation */}
+        {/* ── Navigation ── */}
         <div style={{ display:"flex", gap:"10px", marginTop:"26px", alignItems:"center" }}>
           <button onClick={prev} style={{ padding:"9px 18px", background:"#141414", border:"1px solid #242424", borderRadius:"6px", color:"#7a7060", cursor:"pointer", fontSize:"14px" }}>← Prev</button>
           <button onClick={markMastered}
@@ -515,14 +478,16 @@ export default function VocabMaster() {
           </button>
           <button onClick={next} style={{ padding:"9px 18px", background:"#c8a96e15", border:"1px solid #c8a96e44", borderRadius:"6px", color:"#c8a96e", cursor:"pointer", fontSize:"14px" }}>Next →</button>
         </div>
-        <div style={{ marginTop:"10px", fontSize:"11px", color:"#333" }}>{(index % filteredDeck.length) + 1} / {filteredDeck.length}</div>
+        <div style={{ marginTop:"10px", fontSize:"11px", color:"#333" }}>
+          {(index % filteredLen) + 1} / {filteredLen}
+          {tagFilter && <span style={{ color:"#c8a96e88" }}> · #{tagFilter}</span>}
+        </div>
       </div>
     </div>
   );
 }
 
-const root = ReactDOM.createRoot(document.getElementById("root"));
-root.render(<VocabMaster />);
+ReactDOM.createRoot(document.getElementById("root")).render(<VocabMaster />);
 </script>
 </body>
 </html>
