@@ -13,8 +13,43 @@
     body { background: #0d0d0d; color: #f0ece4; font-family: Georgia, serif; }
     #root { min-height: 100vh; }
     button, input { font-family: inherit; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+    @keyframes fadeIn  { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes slideUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes toastIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }
+    @keyframes toastOut { from { opacity:1; } to { opacity:0; } }
+    @keyframes popIn   { from { transform:scale(0.85); opacity:0; } to { transform:scale(1); opacity:1; } }
+
     .wotd-banner { animation: fadeIn 0.4s ease; }
+    .card-scene  { width:100%; max-width:560px; perspective:1000px; }
+    .card-wrap   { position:relative; width:100%; transition:transform 0.5s cubic-bezier(.4,0,.2,1); transform-style:preserve-3d; }
+    .card-wrap.flipped { transform:rotateY(180deg); }
+    .card-face   { width:100%; backface-visibility:hidden; -webkit-backface-visibility:hidden; }
+    .card-back   { position:absolute; top:0; left:0; transform:rotateY(180deg); }
+
+    .toast {
+      position:fixed; bottom:28px; right:24px; z-index:999;
+      background:#1a1a1a; border:1px solid #2e2e2e; border-radius:10px;
+      padding:10px 18px; font-size:13px; color:#c8a96e;
+      animation: toastIn 0.25s ease;
+      box-shadow:0 4px 20px rgba(0,0,0,0.5);
+    }
+    .toast.out { animation: toastOut 0.3s ease forwards; }
+
+    .tag-bar { display:flex; gap:5px; flex-wrap:wrap; }
+    .tag-btn  { font-size:10px; color:#4a5a4a; border:1px solid #2a3a2a; border-radius:10px; padding:3px 9px; background:none; cursor:pointer; transition:background 0.15s, color 0.15s; font-family:Georgia,serif; }
+    .tag-btn:hover, .tag-btn.active { background:#2a3a2a; color:#7a9e7e; }
+    .tag-btn.active { border-color:#7a9e7e55; }
+
+    .srs-btn { flex:1; padding:9px 0; border-radius:6px; cursor:pointer; font-size:12px; font-family:Georgia,serif; transition:filter 0.15s; }
+    .srs-btn:hover { filter:brightness(1.2); }
+
+    .nav-btn  { padding:9px 18px; border-radius:6px; cursor:pointer; font-size:14px; font-family:Georgia,serif; transition:background 0.15s; }
+
+    /* daily ring */
+    .ring-wrap { position:relative; width:34px; height:34px; flex-shrink:0; }
+    .ring-wrap svg { transform:rotate(-90deg); }
+    .ring-label { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:9px; color:#c8a96e; font-family:Georgia,serif; }
   </style>
 </head>
 <body>
@@ -24,18 +59,42 @@ const { useState, useEffect, useCallback, useRef } = React;
 
 /* ── helpers ─────────────────────────────────────────── */
 const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
-
 const getWrongOptions = (correct, all, count = 3) =>
   shuffle(all.filter(w => w.word !== correct.word)).slice(0, count).map(w => w.definition);
 
 /* ── localStorage helpers ────────────────────────────── */
 const MASTERED_KEY = "lexicon_mastered_v2";
 const SRS_KEY      = "lexicon_srs_v2";
+const STREAK_KEY   = "lexicon_streak_v1";
+const DAILY_KEY    = "lexicon_daily_v1";
 
 function loadSet(key)   { try { return new Set(JSON.parse(localStorage.getItem(key) || "[]")); } catch { return new Set(); } }
 function saveSet(key,s) { try { localStorage.setItem(key, JSON.stringify([...s])); } catch {} }
 function loadSRS()      { try { return JSON.parse(localStorage.getItem(SRS_KEY) || "{}"); } catch { return {}; } }
 function saveSRS(obj)   { try { localStorage.setItem(SRS_KEY, JSON.stringify(obj)); } catch {} }
+
+function loadStreak() {
+  try {
+    const d = JSON.parse(localStorage.getItem(STREAK_KEY) || "{}");
+    const today = todayStr();
+    if (d.lastDate === today)     return { count: d.count || 0, lastDate: today };
+    if (d.lastDate === yesterday()) return { count: d.count || 0, lastDate: d.lastDate };
+    return { count: 0, lastDate: null };
+  } catch { return { count: 0, lastDate: null }; }
+}
+function saveStreak(s) { try { localStorage.setItem(STREAK_KEY, JSON.stringify(s)); } catch {} }
+
+function loadDaily() {
+  try {
+    const d = JSON.parse(localStorage.getItem(DAILY_KEY) || "{}");
+    if (d.date === todayStr()) return d.count || 0;
+    return 0;
+  } catch { return 0; }
+}
+function saveDaily(n) { try { localStorage.setItem(DAILY_KEY, JSON.stringify({ date: todayStr(), count: n })); } catch {} }
+
+function todayStr()     { return new Date().toISOString().slice(0,10); }
+function yesterday()    { const d = new Date(); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); }
 
 /* ── word-of-the-day (deterministic by date) ─────────── */
 function getWotd(words) {
@@ -52,6 +111,12 @@ function buildSRSDeck(words, srsData) {
   return [...shuffle(due), ...shuffle(rest)];
 }
 
+/* ── due count ───────────────────────────────────────── */
+function countDue(words, srsData) {
+  const now = Date.now();
+  return words.filter(w => !srsData[w.word] || srsData[w.word].nextReview <= now).length;
+}
+
 /* ── speech ──────────────────────────────────────────── */
 function speak(word) {
   if (!window.speechSynthesis) return;
@@ -61,60 +126,95 @@ function speak(word) {
   window.speechSynthesis.speak(u);
 }
 
-/* ── constants ───────────────────────────────────────── */
-const MODES   = ["flashcard", "quiz", "fill-blank", "usage"];
-const FILTERS = ["all", "unmastered", "mastered", "academic", "general", "law", "history", "writing"];
+/* ── SRS intervals (ms) ──────────────────────────────── */
+const SRS_INTERVALS = { again: 0, hard: 10*60*1000, good: 24*60*60*1000, easy: 4*24*60*60*1000 };
+const SRS_LABELS    = { again:"Again (now)", hard:"Hard (10 min)", good:"Good (1 day)", easy:"Easy (4 days)" };
 
-/* ── intervals (ms) for SRS boxes ───────────────────── */
-const SRS_INTERVALS = { again: 0, hard: 10 * 60 * 1000, good: 24 * 60 * 60 * 1000, easy: 4 * 24 * 60 * 60 * 1000 };
+const DAILY_GOAL = 20;
+const MODES = ["flashcard", "quiz", "fill-blank", "usage"];
+
+/* ── Toast component ─────────────────────────────────── */
+function Toast({ msg, onDone }) {
+  const [fading, setFading] = useState(false);
+  useEffect(() => {
+    const t1 = setTimeout(() => setFading(true), 1800);
+    const t2 = setTimeout(() => onDone(), 2200);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
+  return <div className={`toast${fading ? " out" : ""}`}>{msg}</div>;
+}
+
+/* ── Daily ring ──────────────────────────────────────── */
+function DailyRing({ done, goal }) {
+  const r = 13, circ = 2 * Math.PI * r;
+  const pct = Math.min(done / goal, 1);
+  return (
+    <div className="ring-wrap" title={`${done}/${goal} reviewed today`}>
+      <svg width="34" height="34" viewBox="0 0 34 34">
+        <circle cx="17" cy="17" r={r} fill="none" stroke="#222" strokeWidth="3" />
+        <circle cx="17" cy="17" r={r} fill="none" stroke="#c8a96e" strokeWidth="3"
+          strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)}
+          strokeLinecap="round" style={{ transition:"stroke-dashoffset 0.4s ease" }} />
+      </svg>
+      <div className="ring-label">{done}</div>
+    </div>
+  );
+}
 
 /* ══════════════════════════════════════════════════════ */
 function VocabMaster() {
-  const [words,      setWords]      = useState([]);
-  const [loading,    setLoading]    = useState(true);
-  const [error,      setError]      = useState(null);
+  const [words,       setWords]      = useState([]);
+  const [loading,     setLoading]    = useState(true);
+  const [error,       setError]      = useState(null);
 
-  const [mode,       setMode]       = useState("flashcard");
-  const [deck,       setDeck]       = useState([]);
-  const [index,      setIndex]      = useState(0);
-  const [flipped,    setFlipped]    = useState(false);
-  const [quizOpts,   setQuizOpts]   = useState([]);
-  const [selected,   setSelected]   = useState(null);
-  const [score,      setScore]      = useState({ correct: 0, total: 0 });
-  const [filter,     setFilter]     = useState("all");
-  const [tagFilter,  setTagFilter]  = useState(null);
-  const [mastered,   setMastered]   = useState(() => loadSet(MASTERED_KEY));
-  const [srsData,    setSrsData]    = useState(() => loadSRS());
-  const [fillAnswer, setFillAnswer] = useState("");
-  const [fillChecked,setFillChecked]= useState(false);
-  const [streak,     setStreak]     = useState(0);
-  const [showHint,   setShowHint]   = useState(false);
-  const [search,     setSearch]     = useState("");
-  const [showKeys,   setShowKeys]   = useState(false);
-  const [wotdOpen,   setWotdOpen]   = useState(true);
+  const [mode,        setMode]       = useState("flashcard");
+  const [deck,        setDeck]       = useState([]);
+  const [index,       setIndex]      = useState(0);
+  const [flipped,     setFlipped]    = useState(false);
+  const [quizOpts,    setQuizOpts]   = useState([]);
+  const [selected,    setSelected]   = useState(null);
+  const [score,       setScore]      = useState({ correct:0, total:0 });
+  const [filter,      setFilter]     = useState("all");
+  const [tagFilter,   setTagFilter]  = useState(null);
+  const [mastered,    setMastered]   = useState(() => loadSet(MASTERED_KEY));
+  const [srsData,     setSrsData]    = useState(() => loadSRS());
+  const [fillAnswer,  setFillAnswer] = useState("");
+  const [fillChecked, setFillChecked]= useState(false);
+  const [showHint,    setShowHint]   = useState(false);
+  const [streakData,  setStreakData] = useState(() => loadStreak());
+  const [dailyDone,   setDailyDone] = useState(() => loadDaily());
+  const [search,      setSearch]     = useState("");
+  const [showKeys,    setShowKeys]   = useState(false);
+  const [wotdOpen,    setWotdOpen]   = useState(true);
+  const [toast,       setToast]      = useState(null);
+  const [allTags,     setAllTags]    = useState([]);
+
+  /* touch swipe */
+  const touchStart = useRef(null);
 
   /* load words.json */
   useEffect(() => {
     fetch("./words.json")
       .then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); })
-      .then(data => { setWords(data); setLoading(false); })
-      .catch(e  => { setError(e.message); setLoading(false); });
+      .then(data => {
+        setWords(data);
+        setLoading(false);
+        /* derive all unique tags */
+        const tags = [...new Set(data.flatMap(w => w.tags || []))].sort();
+        setAllTags(tags);
+      })
+      .catch(e => { setError(e.message); setLoading(false); });
   }, []);
 
-  /* rebuild deck when words / filter / tag / search / srsData change */
+  /* rebuild deck */
   useEffect(() => {
     if (!words.length) return;
     let base = words.filter(w => {
-      if (search)     return w.word.toLowerCase().includes(search.toLowerCase()) ||
-                             w.definition.toLowerCase().includes(search.toLowerCase());
-      if (tagFilter)  return w.tags.includes(tagFilter);
+      if (search)    return w.word.toLowerCase().includes(search.toLowerCase()) ||
+                            w.definition.toLowerCase().includes(search.toLowerCase());
+      if (tagFilter) return w.tags.includes(tagFilter);
       if (filter === "mastered")   return mastered.has(w.word);
       if (filter === "unmastered") return !mastered.has(w.word);
-      if (filter === "academic")   return w.context.includes("academic");
-      if (filter === "general")    return w.context.includes("general");
-      if (filter === "law")        return w.tags.includes("law") || w.context.includes("legal");
-      if (filter === "history")    return w.tags.includes("history");
-      if (filter === "writing")    return w.tags.includes("writing");
       return true;
     });
     setDeck(buildSRSDeck(base, srsData));
@@ -123,7 +223,8 @@ function VocabMaster() {
 
   const filteredLen = deck.length;
   const current = filteredLen ? deck[index % filteredLen] : null;
-  const wotd = words.length ? getWotd(words) : null;
+  const wotd    = words.length ? getWotd(words) : null;
+  const dueCount = words.length ? countDue(words, srsData) : 0;
 
   /* reset per-card state when card changes */
   useEffect(() => {
@@ -136,6 +237,23 @@ function VocabMaster() {
   /* navigation */
   const next = useCallback(() => setIndex(i => (i + 1) % Math.max(filteredLen, 1)), [filteredLen]);
   const prev = useCallback(() => setIndex(i => (i - 1 + Math.max(filteredLen, 1)) % Math.max(filteredLen, 1)), [filteredLen]);
+
+  /* record a review for streak/daily */
+  const recordReview = useCallback(() => {
+    setDailyDone(d => {
+      const next = d + 1;
+      saveDaily(next);
+      return next;
+    });
+    setStreakData(s => {
+      const today = todayStr();
+      if (s.lastDate === today) return s;
+      const newCount = (s.lastDate === yesterday() ? s.count : 0) + 1;
+      const updated = { count: newCount, lastDate: today };
+      saveStreak(updated);
+      return updated;
+    });
+  }, []);
 
   /* mastered toggle */
   const markMastered = useCallback(() => {
@@ -151,14 +269,16 @@ function VocabMaster() {
   /* SRS rating */
   const rateSRS = useCallback((rating) => {
     if (!current) return;
+    recordReview();
     setSrsData(prev => {
       const next = { ...prev, [current.word]: { nextReview: Date.now() + SRS_INTERVALS[rating], rating } };
       saveSRS(next);
       return next;
     });
-    if (rating !== "again") setTimeout(next, 180);
+    /* toast with next review time */
+    setToast(SRS_LABELS[rating]);
+    if (rating !== "again") setTimeout(next, 300);
     else {
-      /* re-insert 5 cards ahead */
       setDeck(d => {
         const copy = [...d];
         const cur  = copy.splice(index % copy.length, 1)[0];
@@ -167,21 +287,31 @@ function VocabMaster() {
         return copy;
       });
     }
-  }, [current, index, next]);
+  }, [current, index, next, recordReview]);
 
   /* keyboard shortcuts */
   useEffect(() => {
     function onKey(e) {
       if (e.target.tagName === "INPUT") return;
-      if (e.key === "ArrowRight")         next();
-      else if (e.key === "ArrowLeft")     prev();
-      else if (e.key === " ")             { e.preventDefault(); setFlipped(f => !f); }
-      else if (e.key === "m" || e.key === "M") markMastered();
-      else if (e.key === "s" || e.key === "S") current && speak(current.word);
+      if (e.key === "ArrowRight")               next();
+      else if (e.key === "ArrowLeft")           prev();
+      else if (e.key === " ")                   { e.preventDefault(); setFlipped(f => !f); }
+      else if (e.key === "m" || e.key === "M")  markMastered();
+      else if (e.key === "s" || e.key === "S")  current && speak(current.word);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [next, prev, markMastered, current]);
+
+  /* touch swipe */
+  const onTouchStart = (e) => { touchStart.current = e.touches[0].clientX; };
+  const onTouchEnd   = (e) => {
+    if (touchStart.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStart.current;
+    touchStart.current = null;
+    if (Math.abs(dx) < 40) return;
+    dx < 0 ? next() : prev();
+  };
 
   /* quiz handler */
   const handleQuizSelect = (opt) => {
@@ -189,7 +319,7 @@ function VocabMaster() {
     setSelected(opt);
     const ok = opt === current.definition;
     setScore(s => ({ correct: s.correct + (ok ? 1 : 0), total: s.total + 1 }));
-    setStreak(s => ok ? s + 1 : 0);
+    recordReview();
   };
 
   /* fill-in handler */
@@ -198,16 +328,11 @@ function VocabMaster() {
     setFillChecked(true);
     const ok = fillAnswer.trim().toLowerCase() === current.word.toLowerCase();
     setScore(s => ({ correct: s.correct + (ok ? 1 : 0), total: s.total + 1 }));
-    setStreak(s => ok ? s + 1 : 0);
+    recordReview();
   };
 
   /* tag click */
-  const onTagClick = (tag) => {
-    setTagFilter(tag);
-    setFilter("all");
-    setSearch("");
-    setIndex(0);
-  };
+  const onTagClick = (tag) => { setTagFilter(tag); setFilter("all"); setSearch(""); setIndex(0); };
   const clearTagFilter = () => setTagFilter(null);
 
   /* ── loading / error screens ─── */
@@ -232,21 +357,45 @@ function VocabMaster() {
   );
 
   const isMastered = mastered.has(current.word);
-  const pct = score.total > 0 ? Math.round((score.correct / score.total) * 100) : null;
+  const pct  = score.total > 0 ? Math.round((score.correct / score.total) * 100) : null;
   const today = new Date().toLocaleDateString("en-US", { month:"long", day:"numeric" });
+  const streak = streakData.count;
 
   /* ── style shorthands ─── */
   const btn = (active, activeColor = "#c8a96e") => ({
     padding: "5px 14px", borderRadius: "4px", border: "1px solid",
     borderColor: active ? activeColor : "#252525",
-    background:  active ? `${activeColor}12`  : "transparent",
+    background:  active ? `${activeColor}12` : "transparent",
     color:       active ? activeColor : "#555",
-    fontSize: "12px", cursor: "pointer",
+    fontSize: "12px", cursor: "pointer", fontFamily: "Georgia,serif",
   });
   const filterBtn = (f) => btn(filter === f && !search && !tagFilter, "#7a9e7e");
 
+  /* ── card content renderers ─── */
+  const cardFront = (
+    <div className="card-face" style={{ background:"#141414", border:"1px solid #2a2a2a", borderRadius:"12px", padding:"32px", minHeight:"160px", display:"flex", flexDirection:"column", justifyContent:"center", position:"relative" }}>
+      <div style={{ position:"absolute", top:"12px", right:"14px", fontSize:"10px", color:"#333", letterSpacing:"0.1em" }}>TAP TO FLIP</div>
+      <div style={{ textAlign:"center" }}>
+        <div style={{ fontSize:"11px", color:"#5a5050", marginBottom:"10px", textTransform:"uppercase", letterSpacing:"0.1em" }}>Definition</div>
+        <div style={{ fontSize:"19px", lineHeight:"1.55", color:"#f0ece4" }}>{current.definition}</div>
+      </div>
+    </div>
+  );
+
+  const cardBack = (
+    <div className="card-face card-back" style={{ background:"#141414", border:"1px solid #2a2a2a", borderRadius:"12px", padding:"32px", minHeight:"160px", display:"flex", flexDirection:"column", justifyContent:"center" }}>
+      <div style={{ fontSize:"11px", color:"#5a5050", marginBottom:"10px", textTransform:"uppercase", letterSpacing:"0.1em" }}>Example</div>
+      <div style={{ fontSize:"16px", lineHeight:"1.65", color:"#d4c9b8", fontStyle:"italic", borderLeft:"2px solid #c8a96e33", paddingLeft:"16px" }}>"{current.example}"</div>
+      <div style={{ marginTop:"14px", fontSize:"11px", color:"#484848" }}>Context: <span style={{ color:"#7a9e7e" }}>{current.context}</span></div>
+    </div>
+  );
+
   return (
-    <div style={{ minHeight:"100vh", background:"#0d0d0d", color:"#f0ece4", fontFamily:"Georgia, serif", display:"flex", flexDirection:"column" }}>
+    <div style={{ minHeight:"100vh", background:"#0d0d0d", color:"#f0ece4", fontFamily:"Georgia, serif", display:"flex", flexDirection:"column" }}
+      onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+
+      {/* ── Toast ── */}
+      {toast && <Toast msg={toast} onDone={() => setToast(null)} />}
 
       {/* ── Word of the Day banner ── */}
       {wotdOpen && wotd && (
@@ -266,13 +415,23 @@ function VocabMaster() {
           <div style={{ fontSize:"10px", letterSpacing:"0.25em", color:"#6a6050", textTransform:"uppercase", marginBottom:"1px" }}>Noah's</div>
           <div style={{ fontSize:"20px", fontWeight:"bold", letterSpacing:"-0.03em" }}>Lexicon</div>
         </div>
-        <div style={{ display:"flex", gap:"14px", alignItems:"center", flexWrap:"wrap" }}>
+        <div style={{ display:"flex", gap:"12px", alignItems:"center", flexWrap:"wrap" }}>
           <div style={{ fontSize:"12px", color:"#5a5a5a" }}>{words.length} words</div>
+          {dueCount > 0 && (
+            <div title="Cards due for review" style={{ background:"#9e4a4a18", border:"1px solid #9e4a4a44", borderRadius:"6px", padding:"3px 9px", fontSize:"12px", color:"#c08080" }}>
+              {dueCount} due
+            </div>
+          )}
           {pct !== null && <div style={{ fontSize:"13px", color:"#c8a96e" }}>{pct}% ({score.correct}/{score.total})</div>}
-          {streak >= 3 && <div style={{ background:"#c8a96e15", border:"1px solid #c8a96e55", borderRadius:"6px", padding:"3px 10px", fontSize:"12px", color:"#c8a96e" }}>🔥 {streak}</div>}
+          {streak >= 1 && (
+            <div title={`${streak}-day streak`} style={{ background:"#c8a96e15", border:"1px solid #c8a96e55", borderRadius:"6px", padding:"3px 10px", fontSize:"12px", color:"#c8a96e" }}>
+              🔥 {streak}d
+            </div>
+          )}
+          <DailyRing done={dailyDone} goal={DAILY_GOAL} />
           <div style={{ fontSize:"12px", color:"#7a9e7e" }}>{mastered.size} mastered</div>
           <button onClick={() => setShowKeys(k => !k)}
-            style={{ background:"none", border:"1px solid #252525", borderRadius:"4px", color:"#444", fontSize:"11px", padding:"3px 9px", cursor:"pointer" }}>
+            style={{ background:"none", border:"1px solid #252525", borderRadius:"4px", color:"#444", fontSize:"11px", padding:"3px 9px", cursor:"pointer", fontFamily:"Georgia,serif" }}>
             ⌨ keys
           </button>
         </div>
@@ -284,31 +443,43 @@ function VocabMaster() {
           {[["←","prev"],["→","next"],["Space","flip"],["M","mastered"],["S","speak"]].map(([k,v]) => (
             <span key={k}><kbd style={{ background:"#1e1e1e", border:"1px solid #333", borderRadius:"3px", padding:"1px 5px", color:"#888" }}>{k}</kbd> {v}</span>
           ))}
+          <span style={{ color:"#3a3a3a" }}>· swipe left/right on mobile</span>
         </div>
       )}
 
-      {/* ── Mode + filter bar ── */}
-      <div style={{ padding:"10px 24px", borderBottom:"1px solid #191919", display:"flex", gap:"6px", flexWrap:"wrap", alignItems:"center", background:"#0e0e0e" }}>
+      {/* ── Mode bar ── */}
+      <div style={{ padding:"10px 24px 8px", borderBottom:"1px solid #191919", display:"flex", gap:"6px", flexWrap:"wrap", alignItems:"center", background:"#0e0e0e" }}>
         {MODES.map(m => (
           <button key={m} onClick={() => { setMode(m); setIndex(0); }} style={btn(mode === m)}>
             {m === "fill-blank" ? "Fill-in" : m.charAt(0).toUpperCase() + m.slice(1)}
           </button>
         ))}
-        <div style={{ width:"1px", background:"#222", margin:"0 6px", height:"20px" }} />
-        {tagFilter
-          ? <button onClick={clearTagFilter}
-              style={{ padding:"5px 11px", borderRadius:"4px", border:"1px solid #c8a96e", background:"#c8a96e15", color:"#c8a96e", fontSize:"11px", cursor:"pointer" }}>
-              #{tagFilter} ×
-            </button>
-          : FILTERS.map(f => (
-              <button key={f} onClick={() => { setFilter(f); setIndex(0); setSearch(""); }} style={filterBtn(f)}>
-                {f}
-              </button>
-            ))
-        }
+        <div style={{ width:"1px", background:"#222", margin:"0 4px", height:"20px" }} />
+        <button style={filterBtn("all")}       onClick={() => { setFilter("all"); setTagFilter(null); setSearch(""); setIndex(0); }}>All</button>
+        <button style={filterBtn("unmastered")} onClick={() => { setFilter("unmastered"); setTagFilter(null); setSearch(""); setIndex(0); }}>Unmastered</button>
+        <button style={filterBtn("mastered")}  onClick={() => { setFilter("mastered"); setTagFilter(null); setSearch(""); setIndex(0); }}>Mastered</button>
+        {tagFilter && (
+          <button onClick={clearTagFilter}
+            style={{ padding:"5px 11px", borderRadius:"4px", border:"1px solid #c8a96e", background:"#c8a96e15", color:"#c8a96e", fontSize:"11px", cursor:"pointer", fontFamily:"Georgia,serif" }}>
+            #{tagFilter} ×
+          </button>
+        )}
         <input value={search} onChange={e => { setSearch(e.target.value); setIndex(0); setTagFilter(null); }} placeholder="Search…"
-          style={{ marginLeft:"auto", background:"#161616", border:"1px solid #2a2a2a", borderRadius:"6px", padding:"5px 12px", color:"#f0ece4", fontSize:"12px", outline:"none", width:"140px" }} />
+          style={{ marginLeft:"auto", background:"#161616", border:"1px solid #2a2a2a", borderRadius:"6px", padding:"5px 12px", color:"#f0ece4", fontSize:"12px", outline:"none", width:"140px", fontFamily:"Georgia,serif" }} />
       </div>
+
+      {/* ── Tag row (dynamic from words.json) ── */}
+      {allTags.length > 0 && (
+        <div style={{ padding:"7px 24px", borderBottom:"1px solid #161616", background:"#0c0c0c", overflowX:"auto" }}>
+          <div className="tag-bar" style={{ flexWrap:"nowrap", minWidth:"max-content" }}>
+            {allTags.map(t => (
+              <button key={t} className={`tag-btn${tagFilter === t ? " active" : ""}`} onClick={() => onTagClick(t)}>
+                #{t}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Progress bar ── */}
       <div style={{ height:"2px", background:"#181818" }}>
@@ -319,30 +490,22 @@ function VocabMaster() {
       <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"28px 20px" }}>
 
         {/* Word identity */}
-        <div style={{ textAlign:"center", marginBottom:"22px" }}>
+        <div style={{ textAlign:"center", marginBottom:"22px", animation:"popIn 0.2s ease" }} key={current.word}>
           <div style={{ display:"flex", alignItems:"center", gap:"10px", justifyContent:"center", flexWrap:"wrap" }}>
             <div style={{ fontSize:"38px", fontWeight:"bold", letterSpacing:"-0.03em", color: isMastered ? "#c8a96e" : "#f0ece4" }}>
               {current.word}
             </div>
             {isMastered && <span style={{ fontSize:"11px", background:"#c8a96e15", color:"#c8a96e", padding:"2px 8px", borderRadius:"10px", border:"1px solid #c8a96e33" }}>✓ mastered</span>}
           </div>
-
-          {/* pronunciation + speak button */}
           <div style={{ display:"flex", alignItems:"center", gap:"8px", justifyContent:"center", marginTop:"4px" }}>
             <span style={{ fontSize:"13px", color:"#6a6050", fontStyle:"italic" }}>{current.pronunciation}</span>
             <button onClick={() => speak(current.word)} title="Hear pronunciation (S)"
               style={{ background:"none", border:"none", cursor:"pointer", color:"#4a4040", fontSize:"15px", padding:"0", lineHeight:1 }}>🔊</button>
           </div>
-
           <div style={{ fontSize:"10px", color:"#484848", marginTop:"3px", textTransform:"uppercase", letterSpacing:"0.12em" }}>{current.pos}</div>
-
-          {/* tags — click to drill */}
           <div style={{ display:"flex", gap:"6px", justifyContent:"center", marginTop:"8px", flexWrap:"wrap" }}>
-            {current.tags.map(t => (
-              <button key={t} onClick={() => onTagClick(t)}
-                style={{ fontSize:"10px", color:"#4a5a4a", border:"1px solid #2a3a2a", borderRadius:"10px", padding:"2px 9px", background:"none", cursor:"pointer", transition:"background 0.15s" }}
-                onMouseEnter={e => e.target.style.background="#2a3a2a"}
-                onMouseLeave={e => e.target.style.background="none"}>
+            {(current.tags || []).map(t => (
+              <button key={t} className={`tag-btn${tagFilter === t ? " active" : ""}`} onClick={() => onTagClick(t)}>
                 #{t}
               </button>
             ))}
@@ -351,29 +514,19 @@ function VocabMaster() {
 
         {/* ── FLASHCARD ── */}
         {mode === "flashcard" && (
-          <div style={{ width:"100%", maxWidth:"560px" }}>
-            <div onClick={() => setFlipped(f => !f)}
-              style={{ background:"#141414", border:"1px solid #2a2a2a", borderRadius:"12px", padding:"32px", cursor:"pointer", minHeight:"160px", display:"flex", flexDirection:"column", justifyContent:"center", position:"relative" }}>
-              <div style={{ position:"absolute", top:"12px", right:"14px", fontSize:"10px", color:"#333", letterSpacing:"0.1em" }}>TAP TO FLIP</div>
-              {!flipped
-                ? <div style={{ textAlign:"center" }}>
-                    <div style={{ fontSize:"11px", color:"#5a5050", marginBottom:"10px", textTransform:"uppercase", letterSpacing:"0.1em" }}>Definition</div>
-                    <div style={{ fontSize:"19px", lineHeight:"1.55", color:"#f0ece4" }}>{current.definition}</div>
-                  </div>
-                : <div>
-                    <div style={{ fontSize:"11px", color:"#5a5050", marginBottom:"10px", textTransform:"uppercase", letterSpacing:"0.1em" }}>Example</div>
-                    <div style={{ fontSize:"16px", lineHeight:"1.65", color:"#d4c9b8", fontStyle:"italic", borderLeft:"2px solid #c8a96e33", paddingLeft:"16px" }}>"{current.example}"</div>
-                    <div style={{ marginTop:"14px", fontSize:"11px", color:"#484848" }}>Context: <span style={{ color:"#7a9e7e" }}>{current.context}</span></div>
-                  </div>
-              }
+          <div className="card-scene">
+            <div className={`card-wrap${flipped ? " flipped" : ""}`}
+              onClick={() => setFlipped(f => !f)}
+              style={{ cursor:"pointer" }}>
+              {cardFront}
+              {cardBack}
             </div>
-
-            {/* SRS buttons — shown after flip */}
             {flipped && (
-              <div style={{ display:"flex", gap:"8px", marginTop:"12px", justifyContent:"center" }}>
-                {[["again","#9e4a4a","Again"],["hard","#a07840","Hard"],["good","#4a7a8a","Got it"],["easy","#4a8a5a","Easy"]].map(([r, col, label]) => (
-                  <button key={r} onClick={() => rateSRS(r)}
-                    style={{ flex:1, padding:"9px 0", background:`${col}15`, border:`1px solid ${col}55`, borderRadius:"6px", color:col, fontSize:"12px", cursor:"pointer" }}>
+              <div style={{ display:"flex", gap:"8px", marginTop:"12px", justifyContent:"center", animation:"slideUp 0.2s ease" }}>
+                {[["again","#9e4a4a","Again"],["hard","#a07840","Hard"],["good","#4a7a8a","Got it"],["easy","#4a8a5a","Easy"]].map(([r,col,label]) => (
+                  <button key={r} className="srs-btn"
+                    onClick={(e) => { e.stopPropagation(); rateSRS(r); }}
+                    style={{ background:`${col}15`, border:`1px solid ${col}55`, color:col }}>
                     {label}
                   </button>
                 ))}
@@ -406,7 +559,7 @@ function VocabMaster() {
               })}
             </div>
             {selected && (
-              <div style={{ marginTop:"14px", padding:"14px", background:"#141414", borderRadius:"8px", border:"1px solid #242424" }}>
+              <div style={{ marginTop:"14px", padding:"14px", background:"#141414", borderRadius:"8px", border:"1px solid #242424", animation:"slideUp 0.2s ease" }}>
                 <div style={{ fontSize:"11px", color:"#6a6050", marginBottom:"6px" }}>Example:</div>
                 <div style={{ fontSize:"14px", color:"#d4c9b8", fontStyle:"italic" }}>"{current.example}"</div>
               </div>
@@ -423,7 +576,7 @@ function VocabMaster() {
                 "{current.example.replace(new RegExp(`\\b${current.word}\\b`, "i"), "___________")}"
               </div>
               {!showHint
-                ? <button onClick={() => setShowHint(true)} style={{ marginTop:"12px", background:"none", border:"none", color:"#4a4040", fontSize:"12px", cursor:"pointer", textDecoration:"underline" }}>Hint: show definition</button>
+                ? <button onClick={() => setShowHint(true)} style={{ marginTop:"12px", background:"none", border:"none", color:"#4a4040", fontSize:"12px", cursor:"pointer", textDecoration:"underline", fontFamily:"Georgia,serif" }}>Hint: show definition</button>
                 : <div style={{ marginTop:"12px", fontSize:"13px", color:"#7a7060", borderTop:"1px solid #222", paddingTop:"10px" }}>{current.definition}</div>
               }
             </div>
@@ -431,11 +584,11 @@ function VocabMaster() {
               <input value={fillAnswer} onChange={e => setFillAnswer(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && !fillChecked && checkFill()}
                 placeholder="Type the word…" disabled={fillChecked}
-                style={{ flex:1, background:"#141414", border:`1px solid ${fillChecked ? (fillAnswer.trim().toLowerCase()===current.word.toLowerCase() ? "#7a9e7e" : "#9e4a4a") : "#2a2a2a"}`, borderRadius:"8px", padding:"11px 14px", color:"#f0ece4", fontSize:"15px", outline:"none" }} />
-              {!fillChecked && <button onClick={checkFill} style={{ background:"#c8a96e15", border:"1px solid #c8a96e44", color:"#c8a96e", padding:"11px 18px", borderRadius:"8px", cursor:"pointer", fontSize:"14px" }}>Check</button>}
+                style={{ flex:1, background:"#141414", border:`1px solid ${fillChecked ? (fillAnswer.trim().toLowerCase()===current.word.toLowerCase() ? "#7a9e7e" : "#9e4a4a") : "#2a2a2a"}`, borderRadius:"8px", padding:"11px 14px", color:"#f0ece4", fontSize:"15px", outline:"none", fontFamily:"Georgia,serif" }} />
+              {!fillChecked && <button onClick={checkFill} style={{ background:"#c8a96e15", border:"1px solid #c8a96e44", color:"#c8a96e", padding:"11px 18px", borderRadius:"8px", cursor:"pointer", fontSize:"14px", fontFamily:"Georgia,serif" }}>Check</button>}
             </div>
             {fillChecked && (
-              <div style={{ marginTop:"10px", padding:"12px 14px", borderRadius:"8px",
+              <div style={{ marginTop:"10px", padding:"12px 14px", borderRadius:"8px", animation:"slideUp 0.2s ease",
                 background: fillAnswer.trim().toLowerCase()===current.word.toLowerCase() ? "#7a9e7e12" : "#9e4a4a12",
                 border:`1px solid ${fillAnswer.trim().toLowerCase()===current.word.toLowerCase() ? "#7a9e7e33" : "#9e4a4a33"}` }}>
                 {fillAnswer.trim().toLowerCase()===current.word.toLowerCase()
@@ -456,11 +609,11 @@ function VocabMaster() {
               <div style={{ fontSize:"15px", color:"#d4c9b8", lineHeight:"1.55" }}>{current.definition}</div>
             </div>
             <button onClick={() => setFlipped(f => !f)}
-              style={{ width:"100%", padding:"13px", background:"#141414", border:"1px solid #2a2a2a", borderRadius:"8px", color:"#6a6a6a", cursor:"pointer", fontSize:"14px", marginBottom:"10px" }}>
+              style={{ width:"100%", padding:"13px", background:"#141414", border:"1px solid #2a2a2a", borderRadius:"8px", color:"#6a6a6a", cursor:"pointer", fontSize:"14px", marginBottom:"10px", fontFamily:"Georgia,serif" }}>
               {flipped ? "Hide" : "Reveal"} model sentence
             </button>
             {flipped && (
-              <div style={{ background:"#141414", border:"1px solid #c8a96e22", borderRadius:"8px", padding:"16px" }}>
+              <div style={{ background:"#141414", border:"1px solid #c8a96e22", borderRadius:"8px", padding:"16px", animation:"slideUp 0.2s ease" }}>
                 <div style={{ fontSize:"10px", color:"#c8a96e66", marginBottom:"8px", textTransform:"uppercase", letterSpacing:"0.1em" }}>Model</div>
                 <div style={{ fontSize:"16px", color:"#d4c9b8", fontStyle:"italic", lineHeight:"1.6" }}>"{current.example}"</div>
                 <div style={{ marginTop:"10px", fontSize:"11px", color:"#484848" }}>Context: <span style={{ color:"#7a9e7e" }}>{current.context}</span></div>
@@ -471,12 +624,12 @@ function VocabMaster() {
 
         {/* ── Navigation ── */}
         <div style={{ display:"flex", gap:"10px", marginTop:"26px", alignItems:"center" }}>
-          <button onClick={prev} style={{ padding:"9px 18px", background:"#141414", border:"1px solid #242424", borderRadius:"6px", color:"#7a7060", cursor:"pointer", fontSize:"14px" }}>← Prev</button>
-          <button onClick={markMastered}
-            style={{ padding:"9px 18px", background: isMastered ? "#c8a96e15" : "#141414", border:`1px solid ${isMastered ? "#c8a96e" : "#242424"}`, borderRadius:"6px", color: isMastered ? "#c8a96e" : "#5a5a5a", cursor:"pointer", fontSize:"13px" }}>
+          <button className="nav-btn" onClick={prev} style={{ background:"#141414", border:"1px solid #242424", color:"#7a7060" }}>← Prev</button>
+          <button className="nav-btn" onClick={markMastered}
+            style={{ background: isMastered ? "#c8a96e15" : "#141414", border:`1px solid ${isMastered ? "#c8a96e" : "#242424"}`, color: isMastered ? "#c8a96e" : "#5a5a5a", fontSize:"13px" }}>
             {isMastered ? "✓ Mastered" : "Mark mastered"}
           </button>
-          <button onClick={next} style={{ padding:"9px 18px", background:"#c8a96e15", border:"1px solid #c8a96e44", borderRadius:"6px", color:"#c8a96e", cursor:"pointer", fontSize:"14px" }}>Next →</button>
+          <button className="nav-btn" onClick={next} style={{ background:"#c8a96e15", border:"1px solid #c8a96e44", color:"#c8a96e" }}>Next →</button>
         </div>
         <div style={{ marginTop:"10px", fontSize:"11px", color:"#333" }}>
           {(index % filteredLen) + 1} / {filteredLen}
