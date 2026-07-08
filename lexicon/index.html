@@ -217,9 +217,9 @@ function VocabMaster() {
       if (filter === "unmastered") return !mastered.has(w.word);
       return true;
     });
-    setDeck(buildSRSDeck(base, srsData));
+    setDeck(d => buildSRSDeck(base, loadSRS()));
     setIndex(0);
-  }, [words, filter, tagFilter, search, srsData, mastered]);
+  }, [words, filter, tagFilter, search, mastered]); // srsData intentionally excluded — ratings must not reset index
 
   const filteredLen = deck.length;
   const current = filteredLen ? deck[index % filteredLen] : null;
@@ -275,19 +275,23 @@ function VocabMaster() {
       saveSRS(next);
       return next;
     });
-    /* toast with next review time */
     setToast(SRS_LABELS[rating]);
-    if (rating !== "again") setTimeout(next, 300);
-    else {
+    if (rating !== "again") {
+      setIndex(i => (i + 1) % Math.max(filteredLen, 1));
+    } else {
+      /* re-insert current card 5 positions ahead, stay at same index */
       setDeck(d => {
         const copy = [...d];
-        const cur  = copy.splice(index % copy.length, 1)[0];
-        const insertAt = Math.min((index % copy.length) + 5, copy.length);
+        const pos  = index % copy.length;
+        const cur  = copy.splice(pos, 1)[0];
+        const insertAt = Math.min(pos + 5, copy.length);
         copy.splice(insertAt, 0, cur);
         return copy;
       });
+      /* stay on same position — the re-inserted card is 5 ahead */
+      setFlipped(false); setSelected(null); setFillAnswer(""); setFillChecked(false); setShowHint(false);
     }
-  }, [current, index, next, recordReview]);
+  }, [current, index, filteredLen, recordReview]);
 
   /* keyboard shortcuts */
   useEffect(() => {
