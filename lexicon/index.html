@@ -133,6 +133,118 @@ const SRS_LABELS    = { again:"Again (now)", hard:"Hard (10 min)", good:"Good (1
 const DAILY_GOAL = 20;
 const MODES = ["flashcard", "quiz", "fill-blank", "usage"];
 
+/* ── Export / Import helpers ─────────────────────────── */
+function exportProgress() {
+  const data = {
+    mastered: JSON.parse(localStorage.getItem(MASTERED_KEY) || "[]"),
+    srs:      JSON.parse(localStorage.getItem(SRS_KEY)      || "{}"),
+    streak:   JSON.parse(localStorage.getItem(STREAK_KEY)   || "{}"),
+    daily:    JSON.parse(localStorage.getItem(DAILY_KEY)    || "{}"),
+    exported: new Date().toISOString(),
+  };
+  return JSON.stringify(data);
+}
+
+function importProgress(json) {
+  const data = JSON.parse(json);
+  if (data.mastered !== undefined) localStorage.setItem(MASTERED_KEY, JSON.stringify(data.mastered));
+  if (data.srs      !== undefined) localStorage.setItem(SRS_KEY,      JSON.stringify(data.srs));
+  if (data.streak   !== undefined) localStorage.setItem(STREAK_KEY,   JSON.stringify(data.streak));
+  if (data.daily    !== undefined) localStorage.setItem(DAILY_KEY,    JSON.stringify(data.daily));
+}
+
+/* ── Sync Modal ──────────────────────────────────────── */
+function SyncModal({ onClose, onImported }) {
+  const [tab,        setTab]        = useState("export");
+  const [copied,     setCopied]     = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importErr,  setImportErr]  = useState("");
+  const [importOk,   setImportOk]   = useState(false);
+  const exported = exportProgress();
+
+  function handleCopy() {
+    navigator.clipboard.writeText(exported).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      /* fallback: select the textarea */
+      document.getElementById("export-ta").select();
+    });
+  }
+
+  function handleImport() {
+    setImportErr("");
+    try {
+      const trimmed = importText.trim();
+      if (!trimmed) { setImportErr("Paste your progress text first."); return; }
+      const parsed = JSON.parse(trimmed);
+      if (!parsed.mastered && !parsed.srs) { setImportErr("Doesn't look like valid progress data."); return; }
+      importProgress(trimmed);
+      setImportOk(true);
+      setTimeout(() => { onImported(); onClose(); }, 1200);
+    } catch {
+      setImportErr("Invalid data — make sure you copied the full text.");
+    }
+  }
+
+  const tabBtn = (t) => ({
+    padding: "6px 18px", borderRadius: "4px", border: "1px solid",
+    borderColor: tab === t ? "#c8a96e" : "#2a2a2a",
+    background:  tab === t ? "#c8a96e12" : "transparent",
+    color:       tab === t ? "#c8a96e" : "#555",
+    fontSize: "12px", cursor: "pointer", fontFamily: "Georgia,serif",
+  });
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}
+      onClick={onClose}>
+      <div style={{ background:"#141414", border:"1px solid #2a2a2a", borderRadius:"14px", padding:"28px", width:"100%", maxWidth:"480px", animation:"popIn 0.2s ease" }}
+        onClick={e => e.stopPropagation()}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"20px" }}>
+          <div style={{ fontSize:"16px", fontWeight:"bold" }}>Sync progress</div>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:"#555", fontSize:"20px", cursor:"pointer", lineHeight:1 }}>×</button>
+        </div>
+
+        <div style={{ display:"flex", gap:"8px", marginBottom:"20px" }}>
+          <button style={tabBtn("export")} onClick={() => setTab("export")}>Export (this device)</button>
+          <button style={tabBtn("import")} onClick={() => setTab("import")}>Import (another device)</button>
+        </div>
+
+        {tab === "export" && (
+          <div>
+            <p style={{ fontSize:"13px", color:"#7a7060", marginBottom:"14px", lineHeight:"1.6" }}>
+              Copy this text. On your other device, open the app, click <strong style={{ color:"#c8a96e" }}>Sync</strong>, choose <strong style={{ color:"#c8a96e" }}>Import</strong>, and paste it.
+            </p>
+            <textarea id="export-ta" readOnly value={exported} rows={5}
+              style={{ width:"100%", background:"#0d0d0d", border:"1px solid #2a2a2a", borderRadius:"8px", padding:"12px", color:"#7a9e7e", fontSize:"11px", fontFamily:"monospace", resize:"none", outline:"none" }} />
+            <button onClick={handleCopy}
+              style={{ marginTop:"12px", width:"100%", padding:"11px", background: copied ? "#4a8a5a15" : "#c8a96e15", border:`1px solid ${copied ? "#4a8a5a" : "#c8a96e44"}`, borderRadius:"8px", color: copied ? "#7a9e7e" : "#c8a96e", fontSize:"14px", cursor:"pointer", fontFamily:"Georgia,serif" }}>
+              {copied ? "✓ Copied!" : "Copy to clipboard"}
+            </button>
+          </div>
+        )}
+
+        {tab === "import" && (
+          <div>
+            <p style={{ fontSize:"13px", color:"#7a7060", marginBottom:"14px", lineHeight:"1.6" }}>
+              Paste the progress text you copied from your other device. This will <strong style={{ color:"#f0ece4" }}>overwrite</strong> any progress on this device.
+            </p>
+            <textarea value={importText} onChange={e => { setImportText(e.target.value); setImportErr(""); }} rows={5}
+              placeholder="Paste progress text here…"
+              style={{ width:"100%", background:"#0d0d0d", border:`1px solid ${importErr ? "#9e4a4a" : "#2a2a2a"}`, borderRadius:"8px", padding:"12px", color:"#f0ece4", fontSize:"11px", fontFamily:"monospace", resize:"none", outline:"none" }} />
+            {importErr && <div style={{ fontSize:"12px", color:"#c08080", marginTop:"6px" }}>{importErr}</div>}
+            {importOk  && <div style={{ fontSize:"12px", color:"#7a9e7e", marginTop:"6px" }}>✓ Imported! Refreshing…</div>}
+            <button onClick={handleImport}
+              style={{ marginTop:"12px", width:"100%", padding:"11px", background:"#c8a96e15", border:"1px solid #c8a96e44", borderRadius:"8px", color:"#c8a96e", fontSize:"14px", cursor:"pointer", fontFamily:"Georgia,serif" }}>
+              Import progress
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ── Toast component ─────────────────────────────────── */
 function Toast({ msg, onDone }) {
   const [fading, setFading] = useState(false);
@@ -188,6 +300,7 @@ function VocabMaster() {
   const [wotdOpen,    setWotdOpen]   = useState(true);
   const [toast,       setToast]      = useState(null);
   const [allTags,     setAllTags]    = useState([]);
+  const [showSync,    setShowSync]   = useState(false);
 
   /* touch swipe */
   const touchStart = useRef(null);
@@ -348,6 +461,14 @@ function VocabMaster() {
     recordReview();
   };
 
+  /* reload all persisted state after import */
+  const onImported = useCallback(() => {
+    setMastered(loadSet(MASTERED_KEY));
+    setSrsData(loadSRS());
+    setStreakData(loadStreak());
+    setDailyDone(loadDaily());
+  }, []);
+
   /* tag click */
   const onTagClick = (tag) => { setTagFilter(tag); setFilter("all"); setSearch(""); setIndex(0); };
   const clearTagFilter = () => { setTagFilter(null); setFilter("all"); };
@@ -411,6 +532,9 @@ function VocabMaster() {
     <div style={{ minHeight:"100vh", background:"#0d0d0d", color:"#f0ece4", fontFamily:"Georgia, serif", display:"flex", flexDirection:"column" }}
       onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
 
+      {/* ── Sync modal ── */}
+      {showSync && <SyncModal onClose={() => setShowSync(false)} onImported={onImported} />}
+
       {/* ── Toast ── */}
       {toast && <Toast msg={toast} onDone={() => setToast(null)} />}
 
@@ -447,6 +571,10 @@ function VocabMaster() {
           )}
           <DailyRing done={dailyDone} goal={DAILY_GOAL} />
           <div style={{ fontSize:"12px", color:"#7a9e7e" }}>{mastered.size} mastered</div>
+          <button onClick={() => setShowSync(true)}
+            style={{ background:"none", border:"1px solid #252525", borderRadius:"4px", color:"#444", fontSize:"11px", padding:"3px 9px", cursor:"pointer", fontFamily:"Georgia,serif" }}>
+            ⇅ sync
+          </button>
           <button onClick={() => setShowKeys(k => !k)}
             style={{ background:"none", border:"1px solid #252525", borderRadius:"4px", color:"#444", fontSize:"11px", padding:"3px 9px", cursor:"pointer", fontFamily:"Georgia,serif" }}>
             ⌨ keys
