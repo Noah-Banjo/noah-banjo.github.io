@@ -131,7 +131,7 @@ const SRS_INTERVALS = { again: 0, hard: 10*60*1000, good: 24*60*60*1000, easy: 4
 const SRS_LABELS    = { again:"Again (now)", hard:"Hard (10 min)", good:"Good (1 day)", easy:"Easy (4 days)" };
 
 const DAILY_GOAL = 20;
-const MODES = ["flashcard", "quiz", "fill-blank", "usage"];
+const MODES = ["flashcard", "quiz", "fill-blank", "usage", "write"];
 
 /* ── Export / Import helpers ─────────────────────────── */
 function exportProgress() {
@@ -301,6 +301,8 @@ function VocabMaster() {
   const [toast,       setToast]      = useState(null);
   const [allTags,     setAllTags]    = useState([]);
   const [showSync,    setShowSync]   = useState(false);
+  const [writeText,   setWriteText]  = useState("");
+  const [writeResult, setWriteResult]= useState(null); // null | { checks, submitted }
 
   /* touch swipe */
   const touchStart = useRef(null);
@@ -358,6 +360,7 @@ function VocabMaster() {
     if (mode === "quiz") setQuizOpts(shuffle([current.definition, ...getWrongOptions(current, words)]));
     setSelected(null); setFlipped(false);
     setFillAnswer(""); setFillChecked(false); setShowHint(false);
+    setWriteText(""); setWriteResult(null);
   }, [index, mode, current?.word]);
 
   /* navigation */
@@ -468,6 +471,35 @@ function VocabMaster() {
     setStreakData(loadStreak());
     setDailyDone(loadDaily());
   }, []);
+
+  /* write mode check */
+  const checkWrite = () => {
+    const text = writeText.trim();
+    if (!text) return;
+    const lower = text.toLowerCase();
+    const wordLower = current.word.toLowerCase();
+
+    const wordUsed   = lower.includes(wordLower);
+    const wordCount  = text.split(/\s+/).filter(Boolean).length;
+    const longEnough = wordCount >= 6;
+    const notCopied  = text.toLowerCase() !== current.example.toLowerCase();
+
+    /* loose part-of-speech position hint */
+    let posHint = null;
+    if (wordUsed) {
+      const pos = (current.pos || "").toLowerCase();
+      const wordIdx = lower.indexOf(wordLower);
+      const before  = lower.slice(0, wordIdx).trim();
+      const after   = lower.slice(wordIdx + wordLower.length).trim();
+      if (pos.includes("noun") && !before.match(/(a|an|the|my|his|her|its|our|their|this|that|these|those|one|some|any)\s*$/i) && !before.match(/\w+\s*$/))
+        posHint = `Heads up: "${current.word}" is a noun — try placing an article (a/an/the) or possessive before it.`;
+      if (pos.includes("verb") && before.split(/\s+/).length === 0)
+        posHint = `"${current.word}" is a verb — make sure it has a subject doing the action.`;
+    }
+
+    recordReview();
+    setWriteResult({ wordUsed, longEnough, notCopied, posHint, wordCount });
+  };
 
   /* tag click */
   const onTagClick = (tag) => { setTagFilter(tag); setFilter("all"); setSearch(""); setIndex(0); };
@@ -762,6 +794,98 @@ function VocabMaster() {
                 <div style={{ fontSize:"10px", color:"#c8a96e66", marginBottom:"8px", textTransform:"uppercase", letterSpacing:"0.1em" }}>Model</div>
                 <div style={{ fontSize:"16px", color:"#d4c9b8", fontStyle:"italic", lineHeight:"1.6" }}>"{current.example}"</div>
                 <div style={{ marginTop:"10px", fontSize:"11px", color:"#484848" }}>Context: <span style={{ color:"#7a9e7e" }}>{current.context}</span></div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── WRITE ── */}
+        {mode === "write" && (
+          <div style={{ width:"100%", maxWidth:"600px" }}>
+
+            {/* prompt */}
+            <div style={{ background:"#141414", border:"1px solid #242424", borderRadius:"12px", padding:"22px", marginBottom:"14px" }}>
+              <div style={{ fontSize:"11px", color:"#5a5050", marginBottom:"10px", textTransform:"uppercase", letterSpacing:"0.1em" }}>Write a sentence</div>
+              <div style={{ fontSize:"14px", color:"#7a7060", lineHeight:"1.6", marginBottom:"14px" }}>
+                Use <strong style={{ color:"#c8a96e" }}>{current.word}</strong> in one or two sentences of your own. Don't copy the example — write what comes to mind.
+              </div>
+              <div style={{ display:"flex", gap:"20px", flexWrap:"wrap" }}>
+                <div>
+                  <div style={{ fontSize:"10px", color:"#484848", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:"3px" }}>Part of speech</div>
+                  <div style={{ fontSize:"13px", color:"#8a8070" }}>{current.pos}</div>
+                </div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:"10px", color:"#484848", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:"3px" }}>Definition</div>
+                  <div style={{ fontSize:"13px", color:"#b0a890", lineHeight:"1.5" }}>{current.definition}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* textarea */}
+            <textarea
+              value={writeText}
+              onChange={e => { setWriteText(e.target.value); setWriteResult(null); }}
+              placeholder={`Write your sentence using "${current.word}"…`}
+              disabled={!!writeResult}
+              rows={4}
+              style={{ width:"100%", background:"#141414", border:`1px solid ${writeResult ? (writeResult.wordUsed && writeResult.longEnough ? "#7a9e7e" : "#a07840") : "#2a2a2a"}`, borderRadius:"10px", padding:"14px", color:"#f0ece4", fontSize:"15px", lineHeight:"1.6", fontFamily:"Georgia,serif", resize:"vertical", outline:"none" }}
+            />
+
+            {!writeResult && (
+              <button onClick={checkWrite} disabled={!writeText.trim()}
+                style={{ marginTop:"10px", width:"100%", padding:"12px", background: writeText.trim() ? "#c8a96e15" : "#111", border:`1px solid ${writeText.trim() ? "#c8a96e44" : "#1e1e1e"}`, borderRadius:"8px", color: writeText.trim() ? "#c8a96e" : "#333", fontSize:"14px", cursor: writeText.trim() ? "pointer" : "default", fontFamily:"Georgia,serif" }}>
+                Check my sentence
+              </button>
+            )}
+
+            {/* feedback */}
+            {writeResult && (
+              <div style={{ marginTop:"14px", animation:"slideUp 0.25s ease" }}>
+
+                {/* check list */}
+                <div style={{ background:"#111", border:"1px solid #1e1e1e", borderRadius:"10px", padding:"16px", marginBottom:"14px" }}>
+                  <div style={{ fontSize:"11px", color:"#555", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:"12px" }}>Feedback</div>
+                  {[
+                    [writeResult.wordUsed,   writeResult.wordUsed   ? `Used "${current.word}" ✓`                       : `"${current.word}" not found — make sure it's spelled correctly`],
+                    [writeResult.longEnough, writeResult.longEnough ? `Good sentence length (${writeResult.wordCount} words) ✓` : `Too short (${writeResult.wordCount} word${writeResult.wordCount===1?"":"s"}) — aim for at least 6`],
+                    [writeResult.notCopied,  writeResult.notCopied  ? "Written in your own words ✓"                    : "Looks like the model sentence — try writing your own"],
+                  ].map(([pass, msg], i) => (
+                    <div key={i} style={{ display:"flex", gap:"10px", alignItems:"flex-start", marginBottom:"8px" }}>
+                      <span style={{ fontSize:"14px", color: pass ? "#7a9e7e" : "#9e6a4a", flexShrink:0, marginTop:"1px" }}>{pass ? "✓" : "✗"}</span>
+                      <span style={{ fontSize:"13px", color: pass ? "#8ab08a" : "#c09070", lineHeight:"1.5" }}>{msg}</span>
+                    </div>
+                  ))}
+                  {writeResult.posHint && (
+                    <div style={{ display:"flex", gap:"10px", alignItems:"flex-start", marginTop:"4px", paddingTop:"10px", borderTop:"1px solid #1e1e1e" }}>
+                      <span style={{ fontSize:"14px", color:"#a08840", flexShrink:0 }}>⚑</span>
+                      <span style={{ fontSize:"13px", color:"#a09060", lineHeight:"1.5" }}>{writeResult.posHint}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* side-by-side comparison */}
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px", marginBottom:"14px" }}>
+                  <div style={{ background:"#111", border:"1px solid #1e1e1e", borderRadius:"10px", padding:"14px" }}>
+                    <div style={{ fontSize:"10px", color:"#555", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:"8px" }}>Your sentence</div>
+                    <div style={{ fontSize:"14px", color:"#d4c9b8", lineHeight:"1.6", fontStyle:"italic" }}>"{writeText.trim()}"</div>
+                  </div>
+                  <div style={{ background:"#111", border:"1px solid #c8a96e18", borderRadius:"10px", padding:"14px" }}>
+                    <div style={{ fontSize:"10px", color:"#c8a96e55", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:"8px" }}>Model sentence</div>
+                    <div style={{ fontSize:"14px", color:"#d4c9b8", lineHeight:"1.6", fontStyle:"italic" }}>"{current.example}"</div>
+                  </div>
+                </div>
+
+                {/* self-grade */}
+                <div style={{ fontSize:"12px", color:"#555", marginBottom:"8px", textAlign:"center" }}>How did you do? (moves to next card)</div>
+                <div style={{ display:"flex", gap:"8px" }}>
+                  {[["#4a8a5a","Nailed it","good"],["#a07840","Close enough","hard"],["#9e4a4a","Need more practice","again"]].map(([col,label,rating]) => (
+                    <button key={label}
+                      onClick={() => { rateSRS(rating); setWriteText(""); setWriteResult(null); }}
+                      style={{ flex:1, padding:"10px 6px", background:`${col}15`, border:`1px solid ${col}55`, borderRadius:"8px", color:col, fontSize:"12px", cursor:"pointer", fontFamily:"Georgia,serif", lineHeight:"1.3" }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
