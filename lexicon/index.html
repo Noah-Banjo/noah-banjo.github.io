@@ -206,9 +206,17 @@ function VocabMaster() {
       .catch(e => { setError(e.message); setLoading(false); });
   }, []);
 
+  /* track when filter/search/tag/words actually change so we only reset index then */
+  const prevNav = useRef({ filter: "all", tagFilter: null, search: "", wordsLen: 0 });
+
   /* rebuild deck */
   useEffect(() => {
     if (!words.length) return;
+    const prev = prevNav.current;
+    const navChanged = prev.filter !== filter || prev.tagFilter !== tagFilter ||
+                       prev.search !== search  || prev.wordsLen !== words.length;
+    prevNav.current = { filter, tagFilter, search, wordsLen: words.length };
+
     let base = words.filter(w => {
       if (search)    return w.word.toLowerCase().includes(search.toLowerCase()) ||
                             w.definition.toLowerCase().includes(search.toLowerCase());
@@ -217,14 +225,19 @@ function VocabMaster() {
       if (filter === "unmastered") return !mastered.has(w.word);
       return true;
     });
-    setDeck(d => buildSRSDeck(base, loadSRS()));
-    setIndex(0);
+    setDeck(buildSRSDeck(base, loadSRS()));
+    if (navChanged) setIndex(0);
+    // mastered in deps so "mastered"/"unmastered" filters update live,
+    // but index only resets when nav params actually change, not on every toggle
   }, [words, filter, tagFilter, search, mastered]); // srsData intentionally excluded — ratings must not reset index
 
   const filteredLen = deck.length;
   const current = filteredLen ? deck[index % filteredLen] : null;
   const wotd    = words.length ? getWotd(words) : null;
   const dueCount = words.length ? countDue(words, srsData) : 0;
+
+  /* reset score when mode changes */
+  useEffect(() => { setScore({ correct: 0, total: 0 }); }, [mode]);
 
   /* reset per-card state when card changes */
   useEffect(() => {
@@ -337,7 +350,7 @@ function VocabMaster() {
 
   /* tag click */
   const onTagClick = (tag) => { setTagFilter(tag); setFilter("all"); setSearch(""); setIndex(0); };
-  const clearTagFilter = () => setTagFilter(null);
+  const clearTagFilter = () => { setTagFilter(null); setFilter("all"); };
 
   /* ── loading / error screens ─── */
   if (loading) return (
@@ -577,7 +590,7 @@ function VocabMaster() {
             <div style={{ background:"#141414", border:"1px solid #242424", borderRadius:"12px", padding:"26px", marginBottom:"14px" }}>
               <div style={{ fontSize:"11px", color:"#5a5050", marginBottom:"10px", textTransform:"uppercase", letterSpacing:"0.1em" }}>Fill in the blank</div>
               <div style={{ fontSize:"16px", lineHeight:"1.7", color:"#d4c9b8", fontStyle:"italic" }}>
-                "{current.example.replace(new RegExp(`\\b${current.word}\\b`, "i"), "___________")}"
+                "{current.example.replace(new RegExp(`\\b${current.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, "i"), "___________")}"
               </div>
               {!showHint
                 ? <button onClick={() => setShowHint(true)} style={{ marginTop:"12px", background:"none", border:"none", color:"#4a4040", fontSize:"12px", cursor:"pointer", textDecoration:"underline", fontFamily:"Georgia,serif" }}>Hint: show definition</button>
