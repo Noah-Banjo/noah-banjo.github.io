@@ -113,6 +113,15 @@
             text-align: center; padding-top: 120px; min-height: 100vh;
             display: flex; flex-direction: column; justify-content: center;
             align-items: center;
+            position: relative; z-index: 0; overflow: hidden;
+        }
+        .home-video-bg {
+            position: absolute; inset: 0; width: 100%; height: 100%;
+            object-fit: cover; object-position: center; z-index: -1;
+        }
+        .home-video-overlay {
+            position: absolute; inset: 0; z-index: -1; pointer-events: none;
+            background: linear-gradient(135deg, rgba(10,10,15,0.82) 0%, rgba(22,33,62,0.72) 50%, rgba(15,52,96,0.7) 100%);
         }
         .profile-image {
             width: 200px; height: 200px; border-radius: 50%;
@@ -451,6 +460,10 @@
 
     <!-- HOME -->
     <section id="home" class="section">
+        <video class="home-video-bg" id="heroScrubVideo" muted playsinline preload="auto">
+            <source src="assets/hero-library-scrub.mp4" type="video/mp4">
+        </video>
+        <div class="home-video-overlay"></div>
         <div class="profile-image">
             <img src="photo.jpg" alt="Oluseyi Noah Adebanjo">
         </div>
@@ -903,6 +916,41 @@
                     p.style.transform = `translate(${(x - 0.5) * s * 20}px, ${(y - 0.5) * s * 20}px)`;
                 });
             });
+
+            // Hero video: scrubbed by horizontal mouse movement instead of autoplaying.
+            const heroVideo = document.getElementById('heroScrubVideo');
+            if (heroVideo) {
+                const SENSITIVITY = 0.8;
+                let prevX = null;
+                let targetTime = 0;
+                let seeking = false;
+
+                function seekTo(time) {
+                    seeking = true;
+                    heroVideo.currentTime = time;
+                }
+
+                heroVideo.addEventListener('seeked', function () {
+                    if (heroVideo.currentTime !== targetTime) {
+                        seekTo(targetTime);
+                    } else {
+                        seeking = false;
+                    }
+                });
+
+                window.addEventListener('mousemove', function (e) {
+                    if (!heroVideo.duration || isNaN(heroVideo.duration)) return;
+                    if (prevX === null) { prevX = e.clientX; return; }
+
+                    const delta = e.clientX - prevX;
+                    prevX = e.clientX;
+
+                    const offset = (delta / window.innerWidth) * SENSITIVITY * heroVideo.duration;
+                    targetTime = Math.min(Math.max(targetTime + offset, 0), heroVideo.duration);
+
+                    if (!seeking) seekTo(targetTime);
+                });
+            }
         });
     </script>
 </body>
