@@ -152,7 +152,11 @@
         }
         .title {
             font-size: 1.2rem; color: rgba(255, 255, 255, 0.6);
-            margin-bottom: 36px; font-weight: 300; letter-spacing: 1px;
+            margin-bottom: 8px; font-weight: 300; letter-spacing: 1px;
+        }
+        .slogan {
+            font-size: 0.95rem; color: #f093fb; font-style: italic;
+            letter-spacing: 0.3px; margin-bottom: 32px; font-weight: 500;
         }
 
         /* Three typewriter cards side by side */
@@ -262,6 +266,24 @@
         .edu-links { margin-top: 16px; display: flex; gap: 14px; flex-wrap: wrap; }
         .edu-links a { color: #f093fb; font-size: 0.88rem; text-decoration: none; transition: opacity 0.2s; }
         .edu-links a:hover { opacity: 0.75; text-decoration: underline; }
+        .edu-entry + .edu-entry {
+            margin-top: 22px; padding-top: 22px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .dissertation-card { grid-column: 1 / -1; }
+        .dissertation-text { color: rgba(255,255,255,0.8); font-size: 0.95rem; margin-top: 12px; }
+
+        .quote-block {
+            grid-column: 1 / -1; text-align: center; max-width: 700px;
+            margin: 34px auto 0; padding-top: 30px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+        }
+        .quote-text {
+            font-size: 1.25rem; font-style: italic; line-height: 1.55;
+            color: rgba(255,255,255,0.88);
+        }
+        .quote-attribution { margin-top: 12px; color: #f093fb; font-weight: 600; font-size: 0.9rem; }
 
         /* Cards */
         .card-grid {
@@ -469,6 +491,7 @@
         </div>
         <h1 class="name">Oluseyi Noah Adebanjo</h1>
         <p class="title">Childhood Historian & Digital Archivist</p>
+        <p class="slogan">Safe Children. Safe Society.</p>
 
         <div class="typewriter-grid">
             <div class="typewriter-card">
@@ -522,16 +545,46 @@
             </div>
             <div class="education-card">
                 <div class="edu-label">Education</div>
-                <div class="edu-degree">Master of Public History</div>
-                <div class="edu-school">University of Arkansas at Little Rock</div>
-                <div class="edu-detail">Conferred: December 2025</div>
-                <div class="edu-detail" style="margin-top: 10px;"><em>"Preserving the Untold Stories: Leveraging Emerging Technologies (AI and ML) for Archiving Hidden Histories of Children and Families Impacted by the Little Rock School Integration"</em></div>
-                <div class="edu-gpa">GPA: 3.9 / 4.0</div>
-                <div class="edu-links">
-                    <a href="https://www.lr9childrenandfamilies.com/" target="_blank" rel="noopener noreferrer">🌐 Thesis Website</a>
-                    <a href="https://drive.google.com/file/d/15nnI-04ar_Maeafkg6coxEgVicbnTJgh/view?usp=sharing" target="_blank" rel="noopener noreferrer">📄 Read Thesis (PDF)</a>
+
+                <div class="edu-entry">
+                    <div class="edu-degree">Ph.D. Student, U.S. History</div>
+                    <div class="edu-detail">Advisor: Leandra Zarnow</div>
+                    <div class="edu-detail">Major Field: U.S. History (20th Century)</div>
+                    <div class="edu-detail">Minor Field: Legal History and Law and Policy</div>
+                </div>
+
+                <div class="edu-entry">
+                    <div class="edu-degree">Master of Public History</div>
+                    <div class="edu-school">University of Arkansas at Little Rock</div>
+                    <div class="edu-detail">Conferred: December 2025</div>
+                    <div class="edu-detail" style="margin-top: 10px;"><em>"Preserving the Untold Stories: Leveraging Emerging Technologies (AI and ML) for Archiving Hidden Histories of Children and Families Impacted by the Little Rock School Integration"</em></div>
+                    <div class="edu-gpa">GPA: 3.9 / 4.0</div>
+                    <div class="edu-links">
+                        <a href="https://www.lr9childrenandfamilies.com/" target="_blank" rel="noopener noreferrer">🌐 Thesis Website</a>
+                        <a href="https://drive.google.com/file/d/15nnI-04ar_Maeafkg6coxEgVicbnTJgh/view?usp=sharing" target="_blank" rel="noopener noreferrer">📄 Read Thesis (PDF)</a>
+                    </div>
                 </div>
             </div>
+
+            <div class="education-card dissertation-card">
+                <div class="edu-label">Dissertation Research</div>
+                <p class="dissertation-text">My dissertation examines how American law has constructed children as a legal and constitutional category across the twentieth century, tracing how three competing frameworks — the child as parental property, as ward of the state, and as independent rights-bearer — collided at the 1977 National Women's Conference in Houston. The project is anchored in American legal history from roughly 1920 to 1997, with the NWC as the analytical fulcrum, and draws on West African colonial and precolonial history as a comparative frame using the longue durée tradition.</p>
+                <div class="edu-label" style="margin-top: 22px;">Research Interests</div>
+                <div class="skill-tags">
+                    <span class="skill-tag">History of Childhood and Youth</span>
+                    <span class="skill-tag">Constitutional and Legal History</span>
+                    <span class="skill-tag">Women's Political History</span>
+                    <span class="skill-tag">Atlantic World History</span>
+                    <span class="skill-tag">West African History</span>
+                    <span class="skill-tag">Digital Humanities</span>
+                    <span class="skill-tag">Public History</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="quote-block">
+            <p class="quote-text">&ldquo;There can be no keener revelation of a society's soul than the way in which it treats its children.&rdquo;</p>
+            <p class="quote-attribution">— Nelson Mandela</p>
         </div>
     </section>
 
