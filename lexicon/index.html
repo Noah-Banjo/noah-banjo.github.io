@@ -438,7 +438,10 @@ function DailyChallenge({ words, playerName, onClose }) {
         saveChallengeScore(playerName, finalScore, elapsed).then(() => {
           return fetchChallengeScores();
         }).then(s => {
-          setScores(s);
+          /* always include own score even if Firestore hasn't propagated yet */
+          const merged = { ...s };
+          merged[playerName.toLowerCase()] = { name: playerName, score: finalScore, time: elapsed, done: true };
+          setScores(merged);
           setSaving(false);
           setScore(finalScore);
           setDone(true);
