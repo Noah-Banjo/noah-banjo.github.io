@@ -8,6 +8,10 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Firebase compat SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #0d0d0d; color: #f0ece4; font-family: Georgia, serif; }
@@ -73,6 +77,87 @@
 <script type="text/babel">
 const { useState, useEffect, useCallback, useRef } = React;
 
+/* ── Firebase init ───────────────────────────────────── */
+const firebaseConfig = {
+  apiKey: "AIzaSyAEfDxZ1AapLBbOS1jKwFJ6lUMQmTWCdjc",
+  authDomain: "noah-lexicon.firebaseapp.com",
+  projectId: "noah-lexicon",
+  storageBucket: "noah-lexicon.firebasestorage.app",
+  messagingSenderId: "436959532432",
+  appId: "1:436959532432:web:0264f369c69e08b0c84f15",
+  measurementId: "G-3WQW16NVTX"
+};
+
+let db = null;
+try {
+  const fbApp = firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  firebase.auth().signInAnonymously().catch(e => console.warn("Auth:", e));
+} catch(e) { console.warn("Firebase init failed:", e); }
+
+/* ── Firebase helpers ────────────────────────────────── */
+async function syncStats(playerName, masteredSize, streakCount, dailyDone, greCount) {
+  if (!db || !playerName) return;
+  try {
+    await db.collection("players").doc(playerName.toLowerCase()).set({
+      name: playerName,
+      mastered: masteredSize,
+      streak: streakCount,
+      dailyDone,
+      greProgress: greCount,
+      lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+  } catch(e) { console.warn("Sync failed:", e); }
+}
+
+async function fetchLeaderboard() {
+  if (!db) return [];
+  try {
+    const snap = await db.collection("players").get();
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch(e) { return []; }
+}
+
+function getDailyChallengeWords(words) {
+  if (!words.length) return [];
+  const seed = Math.floor(Date.now() / 86400000);
+  const indices = [];
+  let s = seed;
+  while (indices.length < Math.min(10, words.length)) {
+    s = (s * 1664525 + 1013904223) & 0xffffffff;
+    const idx = Math.abs(s) % words.length;
+    if (!indices.includes(idx)) indices.push(idx);
+  }
+  return indices.map(i => words[i]);
+}
+
+async function saveChallengeScore(playerName, score, timeSec) {
+  if (!db || !playerName) return;
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const update = {};
+    update[`scores.${playerName.toLowerCase()}`] = {
+      name: playerName, score, time: timeSec, done: true
+    };
+    await db.collection("daily_challenge").doc(today).set(update, { merge: true });
+  } catch(e) { console.warn("Challenge save failed:", e); }
+}
+
+async function fetchChallengeScores() {
+  if (!db) return {};
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const doc = await db.collection("daily_challenge").doc(today).get();
+    if (!doc.exists) return {};
+    return doc.data().scores || {};
+  } catch(e) { return {}; }
+}
+
+/* ── Player storage ──────────────────────────────────── */
+const PLAYER_KEY = "lexicon_player_v1";
+function loadPlayer() { try { return JSON.parse(localStorage.getItem(PLAYER_KEY) || "null"); } catch { return null; } }
+function savePlayer(p) { try { localStorage.setItem(PLAYER_KEY, JSON.stringify(p)); } catch {} }
+
 /* ── helpers ─────────────────────────────────────────── */
 const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
 const getWrongOptions = (correct, all, count = 3) =>
@@ -88,6 +173,9 @@ function loadSet(key)   { try { return new Set(JSON.parse(localStorage.getItem(k
 function saveSet(key,s) { try { localStorage.setItem(key, JSON.stringify([...s])); } catch {} }
 function loadSRS()      { try { return JSON.parse(localStorage.getItem(SRS_KEY) || "{}"); } catch { return {}; } }
 function saveSRS(obj)   { try { localStorage.setItem(SRS_KEY, JSON.stringify(obj)); } catch {} }
+
+function todayStr()  { return new Date().toISOString().slice(0,10); }
+function yesterday() { const d = new Date(); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); }
 
 function loadStreak() {
   try {
@@ -109,10 +197,7 @@ function loadDaily() {
 }
 function saveDaily(n) { try { localStorage.setItem(DAILY_KEY, JSON.stringify({ date: todayStr(), count: n })); } catch {} }
 
-function todayStr()     { return new Date().toISOString().slice(0,10); }
-function yesterday()    { const d = new Date(); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); }
-
-/* ── word-of-the-day (deterministic by date) ─────────── */
+/* ── word-of-the-day ─────────────────────────────────── */
 function getWotd(words) {
   if (!words.length) return null;
   const day = Math.floor(Date.now() / 86400000);
@@ -127,7 +212,6 @@ function buildSRSDeck(words, srsData) {
   return [...shuffle(due), ...shuffle(rest)];
 }
 
-/* ── due count ───────────────────────────────────────── */
 function countDue(words, srsData) {
   const now = Date.now();
   return words.filter(w => !srsData[w.word] || srsData[w.word].nextReview <= now).length;
@@ -169,6 +253,303 @@ function importProgress(json) {
   if (data.daily    !== undefined) localStorage.setItem(DAILY_KEY,    JSON.stringify(data.daily));
 }
 
+/* ══════════════════════════════════════════════════════
+   PlayerSelect — first time setup
+   ══════════════════════════════════════════════════════ */
+function PlayerSelect({ onSelect }) {
+  const [step,   setStep]   = useState("pick"); // "pick" | "custom"
+  const [custom, setCustom] = useState("");
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"#0d0d0d", zIndex:2000, display:"flex", alignItems:"center", justifyContent:"center", padding:"24px" }}>
+      <div style={{ maxWidth:"400px", width:"100%", animation:"popIn 0.3s ease" }}>
+        <div style={{ textAlign:"center", marginBottom:"40px" }}>
+          <div style={{ fontSize:"11px", letterSpacing:"0.3em", color:"#5a5040", textTransform:"uppercase", marginBottom:"8px" }}>Welcome to</div>
+          <div style={{ fontSize:"32px", fontWeight:"bold", letterSpacing:"-0.03em" }}>Noah's Lexicon</div>
+          <div style={{ fontSize:"13px", color:"#6a6050", marginTop:"8px" }}>Who's studying today?</div>
+        </div>
+
+        {step === "pick" && (
+          <div style={{ display:"flex", flexDirection:"column", gap:"12px" }}>
+            <button onClick={() => { const p = { name: "Noah" }; savePlayer(p); onSelect(p); }}
+              style={{ padding:"20px", background:"#c8a96e10", border:"1px solid #c8a96e44", borderRadius:"12px", color:"#c8a96e", fontSize:"18px", cursor:"pointer", fontFamily:"Georgia,serif", transition:"all 0.15s" }}>
+              Noah
+            </button>
+            <button onClick={() => setStep("custom")}
+              style={{ padding:"20px", background:"#4a7a8a10", border:"1px solid #4a7a8a44", borderRadius:"12px", color:"#7aacba", fontSize:"18px", cursor:"pointer", fontFamily:"Georgia,serif", transition:"all 0.15s" }}>
+              My brother
+            </button>
+          </div>
+        )}
+
+        {step === "custom" && (
+          <div style={{ display:"flex", flexDirection:"column", gap:"12px" }}>
+            <div style={{ fontSize:"14px", color:"#7a7060", marginBottom:"4px", textAlign:"center" }}>Enter your name</div>
+            <input autoFocus value={custom} onChange={e => setCustom(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && custom.trim()) { const p = { name: custom.trim() }; savePlayer(p); onSelect(p); } }}
+              placeholder="Your name…"
+              style={{ padding:"14px 18px", background:"#141414", border:"1px solid #3a3a3a", borderRadius:"10px", color:"#f0ece4", fontSize:"18px", outline:"none", textAlign:"center", fontFamily:"Georgia,serif" }} />
+            <button onClick={() => { if (custom.trim()) { const p = { name: custom.trim() }; savePlayer(p); onSelect(p); } }}
+              disabled={!custom.trim()}
+              style={{ padding:"14px", background: custom.trim() ? "#4a7a8a15" : "#111", border:`1px solid ${custom.trim() ? "#4a7a8a55" : "#1e1e1e"}`, borderRadius:"10px", color: custom.trim() ? "#7aacba" : "#333", fontSize:"16px", cursor: custom.trim() ? "pointer" : "default", fontFamily:"Georgia,serif" }}>
+              Start studying
+            </button>
+            <button onClick={() => setStep("pick")}
+              style={{ background:"none", border:"none", color:"#444", fontSize:"13px", cursor:"pointer", fontFamily:"Georgia,serif" }}>← back</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════
+   Leaderboard modal
+   ══════════════════════════════════════════════════════ */
+function Leaderboard({ onClose, currentPlayer }) {
+  const [players,     setPlayers]     = useState([]);
+  const [challenge,   setChallenge]   = useState({});
+  const [loading,     setLoading]     = useState(true);
+
+  useEffect(() => {
+    Promise.all([fetchLeaderboard(), fetchChallengeScores()]).then(([pl, ch]) => {
+      setPlayers(pl.sort((a,b) => (b.mastered||0) - (a.mastered||0)));
+      setChallenge(ch);
+      setLoading(false);
+    });
+  }, []);
+
+  const today = new Date().toLocaleDateString("en-US", { month:"long", day:"numeric" });
+
+  const medal = (i) => ["🥇","🥈","🥉"][i] || `${i+1}.`;
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.85)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}
+      onClick={onClose}>
+      <div style={{ background:"#111", border:"1px solid #2a2a2a", borderRadius:"16px", padding:"28px", width:"100%", maxWidth:"520px", maxHeight:"85vh", overflowY:"auto", animation:"popIn 0.2s ease" }}
+        onClick={e => e.stopPropagation()}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"24px" }}>
+          <div>
+            <div style={{ fontSize:"18px", fontWeight:"bold" }}>Leaderboard</div>
+            <div style={{ fontSize:"11px", color:"#5a5040", marginTop:"2px" }}>Live from Firestore</div>
+          </div>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:"#555", fontSize:"22px", cursor:"pointer", lineHeight:1 }}>×</button>
+        </div>
+
+        {/* Daily Challenge section */}
+        <div style={{ background:"#0e0e0e", border:"1px solid #c8a96e22", borderRadius:"10px", padding:"16px", marginBottom:"20px" }}>
+          <div style={{ fontSize:"11px", color:"#c8a96e66", textTransform:"uppercase", letterSpacing:"0.15em", marginBottom:"12px" }}>Daily Challenge · {today}</div>
+          {Object.keys(challenge).length === 0 ? (
+            <div style={{ fontSize:"13px", color:"#4a4a4a" }}>No scores yet today — be first to complete it!</div>
+          ) : (
+            <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
+              {Object.values(challenge).sort((a,b) => (b.score||0) - (a.score||0)).map((s, i) => (
+                <div key={s.name} style={{ display:"flex", alignItems:"center", gap:"12px" }}>
+                  <span style={{ fontSize:"16px", width:"28px" }}>{medal(i)}</span>
+                  <span style={{ flex:1, fontSize:"14px", color: s.name?.toLowerCase() === currentPlayer?.toLowerCase() ? "#c8a96e" : "#d4c9b8" }}>{s.name}</span>
+                  <span style={{ fontSize:"14px", color:"#7a9e7e", fontWeight:"bold" }}>{s.score}/10</span>
+                  <span style={{ fontSize:"12px", color:"#4a4a4a" }}>{s.time}s</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Overall stats */}
+        <div style={{ fontSize:"11px", color:"#5a5040", textTransform:"uppercase", letterSpacing:"0.15em", marginBottom:"12px" }}>Overall Progress</div>
+        {loading ? (
+          <div style={{ fontSize:"13px", color:"#4a4a4a" }}>Loading…</div>
+        ) : players.length === 0 ? (
+          <div style={{ fontSize:"13px", color:"#4a4a4a" }}>No data yet — start studying to appear here!</div>
+        ) : (
+          <div style={{ display:"flex", flexDirection:"column", gap:"10px" }}>
+            {players.map((p, i) => (
+              <div key={p.id} style={{ background:"#141414", border:`1px solid ${p.name?.toLowerCase() === currentPlayer?.toLowerCase() ? "#c8a96e33" : "#222"}`, borderRadius:"10px", padding:"14px 16px" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:"10px", marginBottom:"10px" }}>
+                  <span style={{ fontSize:"18px" }}>{medal(i)}</span>
+                  <span style={{ fontSize:"16px", fontWeight:"bold", color: p.name?.toLowerCase() === currentPlayer?.toLowerCase() ? "#c8a96e" : "#f0ece4" }}>{p.name}</span>
+                  {p.streak >= 1 && <span style={{ fontSize:"11px", background:"#c8a96e15", color:"#c8a96e", padding:"2px 8px", borderRadius:"8px", border:"1px solid #c8a96e33" }}>🔥 {p.streak}d</span>}
+                </div>
+                <div style={{ display:"flex", gap:"16px", flexWrap:"wrap" }}>
+                  {[
+                    ["Mastered", p.mastered || 0, "#c8a96e"],
+                    ["Today",    p.dailyDone || 0, "#7a9e7e"],
+                    ["GRE",      p.greProgress || 0, "#7aacba"],
+                  ].map(([label, val, col]) => (
+                    <div key={label} style={{ textAlign:"center" }}>
+                      <div style={{ fontSize:"18px", fontWeight:"bold", color: col }}>{val}</div>
+                      <div style={{ fontSize:"10px", color:"#555", textTransform:"uppercase", letterSpacing:"0.1em" }}>{label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════
+   DailyChallenge overlay
+   ══════════════════════════════════════════════════════ */
+function DailyChallenge({ words, playerName, onClose }) {
+  const challengeWords = getDailyChallengeWords(words);
+  const [idx,       setIdx]       = useState(0);
+  const [selected,  setSelected]  = useState(null);
+  const [score,     setScore]     = useState(0);
+  const [elapsed,   setElapsed]   = useState(0);
+  const [done,      setDone]      = useState(false);
+  const [opts,      setOpts]      = useState([]);
+  const [scores,    setScores]    = useState({});
+  const [saving,    setSaving]    = useState(false);
+  const timerRef = useRef(null);
+
+  /* build options for current word */
+  useEffect(() => {
+    if (done || idx >= challengeWords.length) return;
+    const cur = challengeWords[idx];
+    setOpts(shuffle([cur.definition, ...getWrongOptions(cur, words)]));
+    setSelected(null);
+  }, [idx, done]);
+
+  /* timer */
+  useEffect(() => {
+    timerRef.current = setInterval(() => {
+      setElapsed(e => e + 1);
+    }, 1000);
+    return () => clearInterval(timerRef.current);
+  }, []);
+
+  useEffect(() => {
+    if (done) clearInterval(timerRef.current);
+  }, [done]);
+
+  /* auto-advance after answer */
+  useEffect(() => {
+    if (selected === null) return;
+    const t = setTimeout(() => {
+      if (idx + 1 >= challengeWords.length) {
+        /* finish */
+        const finalScore = score + (selected === challengeWords[idx].definition ? 1 : 0);
+        clearInterval(timerRef.current);
+        setSaving(true);
+        saveChallengeScore(playerName, finalScore, elapsed).then(() => {
+          return fetchChallengeScores();
+        }).then(s => {
+          setScores(s);
+          setSaving(false);
+          setScore(finalScore);
+          setDone(true);
+        });
+      } else {
+        if (selected === challengeWords[idx].definition) setScore(s => s + 1);
+        setIdx(i => i + 1);
+      }
+    }, 900);
+    return () => clearTimeout(t);
+  }, [selected]);
+
+  const cur = challengeWords[idx];
+  const today = new Date().toLocaleDateString("en-US", { month:"long", day:"numeric" });
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"#0d0d0d", zIndex:1500, display:"flex", flexDirection:"column", fontFamily:"Georgia,serif" }}>
+      {/* header */}
+      <div style={{ padding:"14px 20px", borderBottom:"1px solid #1e1e1e", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+        <div>
+          <div style={{ fontSize:"11px", color:"#c8a96e66", textTransform:"uppercase", letterSpacing:"0.2em" }}>Daily Challenge</div>
+          <div style={{ fontSize:"14px", color:"#c8a96e" }}>{today}</div>
+        </div>
+        <div style={{ display:"flex", gap:"16px", alignItems:"center" }}>
+          {!done && <div style={{ fontSize:"13px", color:"#5a5a5a" }}>⏱ {elapsed}s</div>}
+          {!done && <div style={{ fontSize:"13px", color:"#7a9e7e" }}>{idx + 1} / {challengeWords.length}</div>}
+          <button onClick={onClose} style={{ background:"none", border:"none", color:"#444", fontSize:"20px", cursor:"pointer", lineHeight:1 }}>×</button>
+        </div>
+      </div>
+
+      {/* progress bar */}
+      {!done && (
+        <div style={{ height:"3px", background:"#1a1a1a" }}>
+          <div style={{ height:"100%", background:"#c8a96e55", width:`${(idx / challengeWords.length) * 100}%`, transition:"width 0.4s" }} />
+        </div>
+      )}
+
+      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"24px 20px", overflowY:"auto" }}>
+
+        {/* finished screen */}
+        {done && (
+          <div style={{ maxWidth:"420px", width:"100%", textAlign:"center", animation:"popIn 0.3s ease" }}>
+            <div style={{ fontSize:"48px", marginBottom:"16px" }}>{score >= 8 ? "🏆" : score >= 5 ? "💪" : "📚"}</div>
+            <div style={{ fontSize:"28px", fontWeight:"bold", marginBottom:"4px" }}>{score}/10</div>
+            <div style={{ fontSize:"14px", color:"#7a7060", marginBottom:"4px" }}>in {elapsed} seconds</div>
+            <div style={{ fontSize:"13px", color:"#5a5040", marginBottom:"28px" }}>
+              {score === 10 ? "Perfect!" : score >= 8 ? "Excellent!" : score >= 6 ? "Good work." : score >= 4 ? "Keep practicing." : "More study needed."}
+            </div>
+
+            {saving ? (
+              <div style={{ fontSize:"13px", color:"#5a5040" }}>Saving score…</div>
+            ) : (
+              <div style={{ background:"#111", border:"1px solid #2a2a2a", borderRadius:"12px", padding:"20px" }}>
+                <div style={{ fontSize:"11px", color:"#5a5040", textTransform:"uppercase", letterSpacing:"0.15em", marginBottom:"14px" }}>Today's Scores</div>
+                {Object.keys(scores).length === 0 ? (
+                  <div style={{ fontSize:"13px", color:"#4a4a4a" }}>Waiting for other player…</div>
+                ) : (
+                  Object.values(scores).sort((a,b) => (b.score||0)-(a.score||0)).map((s, i) => (
+                    <div key={s.name} style={{ display:"flex", alignItems:"center", gap:"12px", marginBottom:"10px" }}>
+                      <span style={{ fontSize:"20px" }}>{["🥇","🥈"][i] || ""}</span>
+                      <span style={{ flex:1, fontSize:"16px", color: s.name?.toLowerCase() === playerName?.toLowerCase() ? "#c8a96e" : "#d4c9b8" }}>{s.name}</span>
+                      <span style={{ fontSize:"18px", fontWeight:"bold", color:"#7a9e7e" }}>{s.score}/10</span>
+                      <span style={{ fontSize:"12px", color:"#4a4a4a" }}>{s.time}s</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            <button onClick={onClose}
+              style={{ marginTop:"20px", padding:"12px 32px", background:"#c8a96e15", border:"1px solid #c8a96e44", borderRadius:"8px", color:"#c8a96e", fontSize:"14px", cursor:"pointer", fontFamily:"Georgia,serif" }}>
+              Back to studying
+            </button>
+          </div>
+        )}
+
+        {/* quiz question */}
+        {!done && cur && (
+          <div style={{ maxWidth:"520px", width:"100%", animation:"popIn 0.2s ease" }} key={idx}>
+            <div style={{ textAlign:"center", marginBottom:"24px" }}>
+              <div style={{ fontSize:"32px", fontWeight:"bold", letterSpacing:"-0.03em", marginBottom:"6px" }}>{cur.word}</div>
+              <div style={{ fontSize:"13px", color:"#6a6050", fontStyle:"italic" }}>{cur.pronunciation}</div>
+              <div style={{ fontSize:"11px", color:"#484848", marginTop:"3px", textTransform:"uppercase", letterSpacing:"0.1em" }}>{cur.pos}</div>
+            </div>
+            <div style={{ fontSize:"13px", color:"#7a7060", marginBottom:"14px", textAlign:"center" }}>
+              Choose the correct definition
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
+              {opts.map((opt, i) => {
+                const isCorrect  = opt === cur.definition;
+                const isSelected = selected === opt;
+                let bg = "#141414", border = "#242424", col = "#b8b0a0";
+                if (selected !== null) {
+                  if (isCorrect)       { bg = "#7a9e7e12"; border = "#7a9e7e"; col = "#7a9e7e"; }
+                  else if (isSelected) { bg = "#9e4a4a12"; border = "#9e4a4a"; col = "#9e6060"; }
+                }
+                return (
+                  <div key={i} onClick={() => { if (selected === null) setSelected(opt); }}
+                    style={{ background:bg, border:`1px solid ${border}`, borderRadius:"8px", padding:"14px 16px", cursor:selected?"default":"pointer", color:col, fontSize:"14px", lineHeight:"1.5", transition:"all 0.15s" }}>
+                    {opt}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ── Sync Modal ──────────────────────────────────────── */
 function SyncModal({ onClose, onImported }) {
   const [tab,        setTab]        = useState("export");
@@ -182,10 +563,7 @@ function SyncModal({ onClose, onImported }) {
     navigator.clipboard.writeText(exported).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    }).catch(() => {
-      /* fallback: select the textarea */
-      document.getElementById("export-ta").select();
-    });
+    }).catch(() => { document.getElementById("export-ta").select(); });
   }
 
   function handleImport() {
@@ -198,9 +576,7 @@ function SyncModal({ onClose, onImported }) {
       importProgress(trimmed);
       setImportOk(true);
       setTimeout(() => { onImported(); onClose(); }, 1200);
-    } catch {
-      setImportErr("Invalid data — make sure you copied the full text.");
-    }
+    } catch { setImportErr("Invalid data — make sure you copied the full text."); }
   }
 
   const tabBtn = (t) => ({
@@ -220,12 +596,10 @@ function SyncModal({ onClose, onImported }) {
           <div style={{ fontSize:"16px", fontWeight:"bold" }}>Sync progress</div>
           <button onClick={onClose} style={{ background:"none", border:"none", color:"#555", fontSize:"20px", cursor:"pointer", lineHeight:1 }}>×</button>
         </div>
-
         <div style={{ display:"flex", gap:"8px", marginBottom:"20px" }}>
           <button style={tabBtn("export")} onClick={() => setTab("export")}>Export (this device)</button>
           <button style={tabBtn("import")} onClick={() => setTab("import")}>Import (another device)</button>
         </div>
-
         {tab === "export" && (
           <div>
             <p style={{ fontSize:"13px", color:"#7a7060", marginBottom:"14px", lineHeight:"1.6" }}>
@@ -239,7 +613,6 @@ function SyncModal({ onClose, onImported }) {
             </button>
           </div>
         )}
-
         {tab === "import" && (
           <div>
             <p style={{ fontSize:"13px", color:"#7a7060", marginBottom:"14px", lineHeight:"1.6" }}>
@@ -261,7 +634,7 @@ function SyncModal({ onClose, onImported }) {
   );
 }
 
-/* ── Toast component ─────────────────────────────────── */
+/* ── Toast ───────────────────────────────────────────── */
 function Toast({ msg, onDone }) {
   const [fading, setFading] = useState(false);
   useEffect(() => {
@@ -295,6 +668,8 @@ function VocabMaster() {
   const [loading,     setLoading]    = useState(true);
   const [error,       setError]      = useState(null);
 
+  const [player,      setPlayer]     = useState(() => loadPlayer());
+
   const [mode,        setMode]       = useState("flashcard");
   const [deck,        setDeck]       = useState([]);
   const [index,       setIndex]      = useState(0);
@@ -317,11 +692,13 @@ function VocabMaster() {
   const [toast,       setToast]      = useState(null);
   const [allTags,     setAllTags]    = useState([]);
   const [showSync,    setShowSync]   = useState(false);
+  const [showBoard,   setShowBoard]  = useState(false);
+  const [showChallenge, setShowChallenge] = useState(false);
   const [writeText,   setWriteText]  = useState("");
-  const [writeResult, setWriteResult]= useState(null); // null | { checks, submitted }
+  const [writeResult, setWriteResult]= useState(null);
 
-  /* touch swipe */
   const touchStart = useRef(null);
+  const syncTimer  = useRef(null);
 
   /* load words.json */
   useEffect(() => {
@@ -330,24 +707,34 @@ function VocabMaster() {
       .then(data => {
         setWords(data);
         setLoading(false);
-        /* derive all unique tags */
         const tags = [...new Set(data.flatMap(w => w.tags || []))].sort();
         setAllTags(tags);
       })
       .catch(e => { setError(e.message); setLoading(false); });
   }, []);
 
-  /* track when filter/search/tag/words actually change so we only reset index then */
-  const prevNav = useRef({ filter: "all", tagFilter: null, search: "", wordsLen: 0 });
+  /* sync stats to Firestore (debounced 3s) */
+  useEffect(() => {
+    if (!player || !words.length) return;
+    clearTimeout(syncTimer.current);
+    syncTimer.current = setTimeout(() => {
+      const greCount = [...mastered].filter(w => {
+        const found = words.find(x => x.word === w);
+        return found && (found.tags || []).includes("gre");
+      }).length;
+      syncStats(player.name, mastered.size, streakData.count, dailyDone, greCount);
+    }, 3000);
+    return () => clearTimeout(syncTimer.current);
+  }, [mastered, streakData, dailyDone, player, words]);
 
-  /* rebuild deck */
+  /* deck rebuild */
+  const prevNav = useRef({ filter: "all", tagFilter: null, search: "", wordsLen: 0 });
   useEffect(() => {
     if (!words.length) return;
     const prev = prevNav.current;
     const navChanged = prev.filter !== filter || prev.tagFilter !== tagFilter ||
                        prev.search !== search  || prev.wordsLen !== words.length;
     prevNav.current = { filter, tagFilter, search, wordsLen: words.length };
-
     let base = words.filter(w => {
       if (search)    return w.word.toLowerCase().includes(search.toLowerCase()) ||
                             w.definition.toLowerCase().includes(search.toLowerCase());
@@ -358,19 +745,15 @@ function VocabMaster() {
     });
     setDeck(buildSRSDeck(base, loadSRS()));
     if (navChanged) setIndex(0);
-    // mastered in deps so "mastered"/"unmastered" filters update live,
-    // but index only resets when nav params actually change, not on every toggle
-  }, [words, filter, tagFilter, search, mastered]); // srsData intentionally excluded — ratings must not reset index
+  }, [words, filter, tagFilter, search, mastered]);
 
   const filteredLen = deck.length;
   const current = filteredLen ? deck[index % filteredLen] : null;
   const wotd    = words.length ? getWotd(words) : null;
   const dueCount = words.length ? countDue(words, srsData) : 0;
 
-  /* reset score when mode changes */
   useEffect(() => { setScore({ correct: 0, total: 0 }); }, [mode]);
 
-  /* reset per-card state when card changes */
   useEffect(() => {
     if (!current) return;
     if (mode === "quiz") setQuizOpts(shuffle([current.definition, ...getWrongOptions(current, words)]));
@@ -379,17 +762,11 @@ function VocabMaster() {
     setWriteText(""); setWriteResult(null);
   }, [index, mode, current?.word]);
 
-  /* navigation */
   const next = useCallback(() => setIndex(i => (i + 1) % Math.max(filteredLen, 1)), [filteredLen]);
   const prev = useCallback(() => setIndex(i => (i - 1 + Math.max(filteredLen, 1)) % Math.max(filteredLen, 1)), [filteredLen]);
 
-  /* record a review for streak/daily */
   const recordReview = useCallback(() => {
-    setDailyDone(d => {
-      const next = d + 1;
-      saveDaily(next);
-      return next;
-    });
+    setDailyDone(d => { const n = d + 1; saveDaily(n); return n; });
     setStreakData(s => {
       const today = todayStr();
       if (s.lastDate === today) return s;
@@ -400,7 +777,6 @@ function VocabMaster() {
     });
   }, []);
 
-  /* mastered toggle */
   const markMastered = useCallback(() => {
     if (!current) return;
     setMastered(prev => {
@@ -411,7 +787,6 @@ function VocabMaster() {
     });
   }, [current]);
 
-  /* SRS rating */
   const rateSRS = useCallback((rating) => {
     if (!current) return;
     recordReview();
@@ -424,7 +799,6 @@ function VocabMaster() {
     if (rating !== "again") {
       setIndex(i => (i + 1) % Math.max(filteredLen, 1));
     } else {
-      /* re-insert current card 5 positions ahead, stay at same index */
       setDeck(d => {
         const copy = [...d];
         const pos  = index % copy.length;
@@ -433,15 +807,13 @@ function VocabMaster() {
         copy.splice(insertAt, 0, cur);
         return copy;
       });
-      /* stay on same position — the re-inserted card is 5 ahead */
       setFlipped(false); setSelected(null); setFillAnswer(""); setFillChecked(false); setShowHint(false);
     }
   }, [current, index, filteredLen, recordReview]);
 
-  /* keyboard shortcuts */
   useEffect(() => {
     function onKey(e) {
-      if (e.target.tagName === "INPUT") return;
+      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
       if (e.key === "ArrowRight")               next();
       else if (e.key === "ArrowLeft")           prev();
       else if (e.key === " ")                   { e.preventDefault(); setFlipped(f => !f); }
@@ -452,7 +824,6 @@ function VocabMaster() {
     return () => window.removeEventListener("keydown", onKey);
   }, [next, prev, markMastered, current]);
 
-  /* touch swipe */
   const onTouchStart = (e) => { touchStart.current = e.touches[0].clientX; };
   const onTouchEnd   = (e) => {
     if (touchStart.current === null) return;
@@ -462,7 +833,6 @@ function VocabMaster() {
     dx < 0 ? next() : prev();
   };
 
-  /* quiz handler */
   const handleQuizSelect = (opt) => {
     if (selected !== null) return;
     setSelected(opt);
@@ -471,7 +841,6 @@ function VocabMaster() {
     recordReview();
   };
 
-  /* fill-in handler */
   const checkFill = () => {
     if (!fillAnswer.trim()) return;
     setFillChecked(true);
@@ -480,7 +849,6 @@ function VocabMaster() {
     recordReview();
   };
 
-  /* reload all persisted state after import */
   const onImported = useCallback(() => {
     setMastered(loadSet(MASTERED_KEY));
     setSrsData(loadSRS());
@@ -488,40 +856,33 @@ function VocabMaster() {
     setDailyDone(loadDaily());
   }, []);
 
-  /* write mode check */
   const checkWrite = () => {
     const text = writeText.trim();
     if (!text) return;
     const lower = text.toLowerCase();
     const wordLower = current.word.toLowerCase();
-
     const wordUsed   = lower.includes(wordLower);
     const wordCount  = text.split(/\s+/).filter(Boolean).length;
     const longEnough = wordCount >= 6;
     const notCopied  = text.toLowerCase() !== current.example.toLowerCase();
-
-    /* loose part-of-speech position hint */
     let posHint = null;
     if (wordUsed) {
       const pos = (current.pos || "").toLowerCase();
       const wordIdx = lower.indexOf(wordLower);
       const before  = lower.slice(0, wordIdx).trim();
-      const after   = lower.slice(wordIdx + wordLower.length).trim();
       if (pos.includes("noun") && !before.match(/(a|an|the|my|his|her|its|our|their|this|that|these|those|one|some|any)\s*$/i) && !before.match(/\w+\s*$/))
         posHint = `Heads up: "${current.word}" is a noun — try placing an article (a/an/the) or possessive before it.`;
       if (pos.includes("verb") && before.split(/\s+/).length === 0)
         posHint = `"${current.word}" is a verb — make sure it has a subject doing the action.`;
     }
-
     recordReview();
     setWriteResult({ wordUsed, longEnough, notCopied, posHint, wordCount });
   };
 
-  /* tag click */
   const onTagClick = (tag) => { setTagFilter(tag); setFilter("all"); setSearch(""); setIndex(0); };
   const clearTagFilter = () => { setTagFilter(null); setFilter("all"); };
 
-  /* ── loading / error screens ─── */
+  /* ── loading / error / no-card screens ── */
   if (loading) return (
     <div style={{ display:"flex", justifyContent:"center", alignItems:"center", height:"100vh", background:"#0d0d0d", color:"#6a6050", fontSize:"14px", fontFamily:"Georgia, serif" }}>
       Loading lexicon…
@@ -532,6 +893,10 @@ function VocabMaster() {
       Could not load words.json: {error}
     </div>
   );
+
+  /* player select — show before app if not set */
+  if (!player) return <PlayerSelect onSelect={p => setPlayer(p)} />;
+
   if (!current) return (
     <div style={{ display:"flex", justifyContent:"center", alignItems:"center", height:"100vh", background:"#0d0d0d", color:"#f0ece4", fontFamily:"Georgia, serif", fontSize:"16px" }}>
       No cards match that filter.{" "}
@@ -547,7 +912,6 @@ function VocabMaster() {
   const today = new Date().toLocaleDateString("en-US", { month:"long", day:"numeric" });
   const streak = streakData.count;
 
-  /* ── style shorthands ─── */
   const btn = (active, activeColor = "#c8a96e") => ({
     padding: "5px 14px", borderRadius: "4px", border: "1px solid",
     borderColor: active ? activeColor : "#252525",
@@ -557,7 +921,6 @@ function VocabMaster() {
   });
   const filterBtn = (f) => btn(filter === f && !search && !tagFilter, "#7a9e7e");
 
-  /* ── card content renderers ─── */
   const cardFront = (
     <div className={`card-face card-pad card-flip ${flipped ? "out" : "in"}`}
       style={{ padding:"32px", cursor:"pointer", position:"relative" }}
@@ -583,13 +946,14 @@ function VocabMaster() {
     <div style={{ minHeight:"100vh", background:"#0d0d0d", color:"#f0ece4", fontFamily:"Georgia, serif", display:"flex", flexDirection:"column" }}
       onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
 
-      {/* ── Sync modal ── */}
-      {showSync && <SyncModal onClose={() => setShowSync(false)} onImported={onImported} />}
-
-      {/* ── Toast ── */}
+      {showSync      && <SyncModal onClose={() => setShowSync(false)} onImported={onImported} />}
+      {showBoard     && <Leaderboard onClose={() => setShowBoard(false)} currentPlayer={player?.name} />}
+      {showChallenge && words.length > 0 && (
+        <DailyChallenge words={words} playerName={player?.name} onClose={() => setShowChallenge(false)} />
+      )}
       {toast && <Toast msg={toast} onDone={() => setToast(null)} />}
 
-      {/* ── Word of the Day banner ── */}
+      {/* Word of the Day */}
       {wotdOpen && wotd && (
         <div className="wotd-banner" style={{ background:"#111408", borderBottom:"1px solid #2a2800", padding:"10px 24px", display:"flex", alignItems:"center", gap:"12px", flexWrap:"wrap" }}>
           <span style={{ fontSize:"10px", color:"#6a6030", textTransform:"uppercase", letterSpacing:"0.2em", flexShrink:0 }}>{today} · Word of the Day</span>
@@ -601,13 +965,19 @@ function VocabMaster() {
         </div>
       )}
 
-      {/* ── Header ── */}
-      <div style={{ padding:"13px 24px 11px", borderBottom:"1px solid #1e1e1e", display:"flex", justifyContent:"space-between", alignItems:"center", background:"#111", flexWrap:"wrap", gap:"8px" }}>
+      {/* Header */}
+      <div className="hdr-row" style={{ padding:"13px 24px 11px", borderBottom:"1px solid #1e1e1e", display:"flex", justifyContent:"space-between", alignItems:"center", background:"#111", flexWrap:"wrap", gap:"8px" }}>
         <div>
           <div style={{ fontSize:"10px", letterSpacing:"0.25em", color:"#6a6050", textTransform:"uppercase", marginBottom:"1px" }}>Noah's</div>
           <div style={{ fontSize:"20px", fontWeight:"bold", letterSpacing:"-0.03em" }}>Lexicon</div>
         </div>
-        <div style={{ display:"flex", gap:"12px", alignItems:"center", flexWrap:"wrap" }}>
+        <div style={{ display:"flex", gap:"10px", alignItems:"center", flexWrap:"wrap" }}>
+          {/* player chip */}
+          <button onClick={() => { if (window.confirm("Switch player? This only changes who you are — your local progress is kept.")) { savePlayer(null); setPlayer(null); } }}
+            title="Switch player"
+            style={{ background:"#7aacba15", border:"1px solid #7aacba44", borderRadius:"6px", padding:"3px 10px", fontSize:"12px", color:"#7aacba", cursor:"pointer", fontFamily:"Georgia,serif" }}>
+            {player.name}
+          </button>
           <div style={{ fontSize:"12px", color:"#5a5a5a" }}>{words.length} words</div>
           {dueCount > 0 && (
             <div title="Cards due for review" style={{ background:"#9e4a4a18", border:"1px solid #9e4a4a44", borderRadius:"6px", padding:"3px 9px", fontSize:"12px", color:"#c08080" }}>
@@ -622,6 +992,16 @@ function VocabMaster() {
           )}
           <DailyRing done={dailyDone} goal={DAILY_GOAL} />
           <div style={{ fontSize:"12px", color:"#7a9e7e" }}>{mastered.size} mastered</div>
+          {/* Daily challenge button */}
+          <button onClick={() => setShowChallenge(true)}
+            style={{ background:"#c8a96e15", border:"1px solid #c8a96e44", borderRadius:"4px", color:"#c8a96e", fontSize:"11px", padding:"3px 9px", cursor:"pointer", fontFamily:"Georgia,serif" }}>
+            ⚔ Challenge
+          </button>
+          {/* Leaderboard button */}
+          <button onClick={() => setShowBoard(true)}
+            style={{ background:"#4a7a8a15", border:"1px solid #4a7a8a44", borderRadius:"4px", color:"#7aacba", fontSize:"11px", padding:"3px 9px", cursor:"pointer", fontFamily:"Georgia,serif" }}>
+            🏆 Board
+          </button>
           <button onClick={() => setShowSync(true)}
             style={{ background:"none", border:"1px solid #252525", borderRadius:"4px", color:"#444", fontSize:"11px", padding:"3px 9px", cursor:"pointer", fontFamily:"Georgia,serif" }}>
             ⇅ sync
@@ -633,7 +1013,7 @@ function VocabMaster() {
         </div>
       </div>
 
-      {/* ── Keyboard hint strip ── */}
+      {/* Keyboard hints */}
       {showKeys && (
         <div style={{ background:"#111", borderBottom:"1px solid #1a1a1a", padding:"8px 24px", fontSize:"11px", color:"#555", display:"flex", gap:"20px", flexWrap:"wrap" }}>
           {[["←","prev"],["→","next"],["Space","flip"],["M","mastered"],["S","speak"]].map(([k,v]) => (
@@ -643,7 +1023,7 @@ function VocabMaster() {
         </div>
       )}
 
-      {/* ── Mode bar ── */}
+      {/* Mode bar */}
       <div style={{ padding:"10px 24px 8px", borderBottom:"1px solid #191919", display:"flex", gap:"6px", flexWrap:"wrap", alignItems:"center", background:"#0e0e0e" }}>
         {MODES.map(m => (
           <button key={m} onClick={() => { setMode(m); setIndex(0); }} style={btn(mode === m)}>
@@ -651,9 +1031,9 @@ function VocabMaster() {
           </button>
         ))}
         <div style={{ width:"1px", background:"#222", margin:"0 4px", height:"20px" }} />
-        <button style={filterBtn("all")}       onClick={() => { setFilter("all"); setTagFilter(null); setSearch(""); setIndex(0); }}>All</button>
+        <button style={filterBtn("all")}        onClick={() => { setFilter("all"); setTagFilter(null); setSearch(""); setIndex(0); }}>All</button>
         <button style={filterBtn("unmastered")} onClick={() => { setFilter("unmastered"); setTagFilter(null); setSearch(""); setIndex(0); }}>Unmastered</button>
-        <button style={filterBtn("mastered")}  onClick={() => { setFilter("mastered"); setTagFilter(null); setSearch(""); setIndex(0); }}>Mastered</button>
+        <button style={filterBtn("mastered")}   onClick={() => { setFilter("mastered"); setTagFilter(null); setSearch(""); setIndex(0); }}>Mastered</button>
         {tagFilter && (
           <button onClick={clearTagFilter}
             style={{ padding:"5px 11px", borderRadius:"4px", border:"1px solid #c8a96e", background:"#c8a96e15", color:"#c8a96e", fontSize:"11px", cursor:"pointer", fontFamily:"Georgia,serif" }}>
@@ -664,25 +1044,23 @@ function VocabMaster() {
           style={{ marginLeft:"auto", background:"#161616", border:"1px solid #2a2a2a", borderRadius:"6px", padding:"5px 12px", color:"#f0ece4", fontSize:"12px", outline:"none", width:"140px", fontFamily:"Georgia,serif" }} />
       </div>
 
-      {/* ── Tag row (dynamic from words.json) ── */}
+      {/* Tag row */}
       {allTags.length > 0 && (
         <div style={{ padding:"7px 24px", borderBottom:"1px solid #161616", background:"#0c0c0c", overflowX:"auto" }}>
           <div className="tag-bar" style={{ flexWrap:"nowrap", minWidth:"max-content" }}>
             {allTags.map(t => (
-              <button key={t} className={`tag-btn${tagFilter === t ? " active" : ""}`} onClick={() => onTagClick(t)}>
-                #{t}
-              </button>
+              <button key={t} className={`tag-btn${tagFilter === t ? " active" : ""}`} onClick={() => onTagClick(t)}>#{t}</button>
             ))}
           </div>
         </div>
       )}
 
-      {/* ── Progress bar ── */}
+      {/* Progress bar */}
       <div style={{ height:"2px", background:"#181818" }}>
         <div style={{ height:"100%", background:"#c8a96e44", width:`${((index % filteredLen) / filteredLen) * 100}%`, transition:"width 0.3s" }} />
       </div>
 
-      {/* ── Main ── */}
+      {/* Main */}
       <div className="main-area" style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"28px 20px" }}>
 
         {/* Word identity */}
@@ -701,32 +1079,27 @@ function VocabMaster() {
           <div style={{ fontSize:"10px", color:"#484848", marginTop:"3px", textTransform:"uppercase", letterSpacing:"0.12em" }}>{current.pos}</div>
           <div style={{ display:"flex", gap:"6px", justifyContent:"center", marginTop:"8px", flexWrap:"wrap" }}>
             {(current.tags || []).map(t => (
-              <button key={t} className={`tag-btn${tagFilter === t ? " active" : ""}`} onClick={() => onTagClick(t)}>
-                #{t}
-              </button>
+              <button key={t} className={`tag-btn${tagFilter === t ? " active" : ""}`} onClick={() => onTagClick(t)}>#{t}</button>
             ))}
           </div>
         </div>
 
-        {/* ── FLASHCARD ── */}
+        {/* FLASHCARD */}
         {mode === "flashcard" && (
           <div className="card-scene">
             {flipped ? cardBack : cardFront}
             {flipped && (
               <div className="srs-row" style={{ display:"flex", gap:"8px", marginTop:"12px", justifyContent:"center", animation:"slideUp 0.2s ease" }}>
                 {[["again","#9e4a4a","Again"],["hard","#a07840","Hard"],["good","#4a7a8a","Got it"],["easy","#4a8a5a","Easy"]].map(([r,col,label]) => (
-                  <button key={r} className="srs-btn"
-                    onClick={() => rateSRS(r)}
-                    style={{ background:`${col}15`, border:`1px solid ${col}55`, color:col }}>
-                    {label}
-                  </button>
+                  <button key={r} className="srs-btn" onClick={() => rateSRS(r)}
+                    style={{ background:`${col}15`, border:`1px solid ${col}55`, color:col }}>{label}</button>
                 ))}
               </div>
             )}
           </div>
         )}
 
-        {/* ── QUIZ ── */}
+        {/* QUIZ */}
         {mode === "quiz" && (
           <div style={{ width:"100%", maxWidth:"560px" }}>
             <div style={{ fontSize:"14px", color:"#7a7060", marginBottom:"14px", textAlign:"center" }}>
@@ -758,7 +1131,7 @@ function VocabMaster() {
           </div>
         )}
 
-        {/* ── FILL IN ── */}
+        {/* FILL IN */}
         {mode === "fill-blank" && (
           <div style={{ width:"100%", maxWidth:"560px" }}>
             <div style={{ background:"#141414", border:"1px solid #242424", borderRadius:"12px", padding:"26px", marginBottom:"14px" }}>
@@ -790,7 +1163,7 @@ function VocabMaster() {
           </div>
         )}
 
-        {/* ── USAGE ── */}
+        {/* USAGE */}
         {mode === "usage" && (
           <div style={{ width:"100%", maxWidth:"560px" }}>
             <div style={{ background:"#141414", border:"1px solid #242424", borderRadius:"12px", padding:"26px", marginBottom:"12px" }}>
@@ -813,11 +1186,9 @@ function VocabMaster() {
           </div>
         )}
 
-        {/* ── WRITE ── */}
+        {/* WRITE */}
         {mode === "write" && (
           <div style={{ width:"100%", maxWidth:"600px" }}>
-
-            {/* prompt */}
             <div style={{ background:"#141414", border:"1px solid #242424", borderRadius:"12px", padding:"22px", marginBottom:"14px" }}>
               <div style={{ fontSize:"11px", color:"#5a5050", marginBottom:"10px", textTransform:"uppercase", letterSpacing:"0.1em" }}>Write a sentence</div>
               <div style={{ fontSize:"14px", color:"#7a7060", lineHeight:"1.6", marginBottom:"14px" }}>
@@ -834,29 +1205,17 @@ function VocabMaster() {
                 </div>
               </div>
             </div>
-
-            {/* textarea */}
-            <textarea
-              value={writeText}
-              onChange={e => { setWriteText(e.target.value); setWriteResult(null); }}
-              placeholder={`Write your sentence using "${current.word}"…`}
-              disabled={!!writeResult}
-              rows={4}
-              style={{ width:"100%", background:"#141414", border:`1px solid ${writeResult ? (writeResult.wordUsed && writeResult.longEnough ? "#7a9e7e" : "#a07840") : "#2a2a2a"}`, borderRadius:"10px", padding:"14px", color:"#f0ece4", fontSize:"15px", lineHeight:"1.6", fontFamily:"Georgia,serif", resize:"vertical", outline:"none" }}
-            />
-
+            <textarea value={writeText} onChange={e => { setWriteText(e.target.value); setWriteResult(null); }}
+              placeholder={`Write your sentence using "${current.word}"…`} disabled={!!writeResult} rows={4}
+              style={{ width:"100%", background:"#141414", border:`1px solid ${writeResult ? (writeResult.wordUsed && writeResult.longEnough ? "#7a9e7e" : "#a07840") : "#2a2a2a"}`, borderRadius:"10px", padding:"14px", color:"#f0ece4", fontSize:"15px", lineHeight:"1.6", fontFamily:"Georgia,serif", resize:"vertical", outline:"none" }} />
             {!writeResult && (
               <button onClick={checkWrite} disabled={!writeText.trim()}
                 style={{ marginTop:"10px", width:"100%", padding:"12px", background: writeText.trim() ? "#c8a96e15" : "#111", border:`1px solid ${writeText.trim() ? "#c8a96e44" : "#1e1e1e"}`, borderRadius:"8px", color: writeText.trim() ? "#c8a96e" : "#333", fontSize:"14px", cursor: writeText.trim() ? "pointer" : "default", fontFamily:"Georgia,serif" }}>
                 Check my sentence
               </button>
             )}
-
-            {/* feedback */}
             {writeResult && (
               <div style={{ marginTop:"14px", animation:"slideUp 0.25s ease" }}>
-
-                {/* check list */}
                 <div style={{ background:"#111", border:"1px solid #1e1e1e", borderRadius:"10px", padding:"16px", marginBottom:"14px" }}>
                   <div style={{ fontSize:"11px", color:"#555", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:"12px" }}>Feedback</div>
                   {[
@@ -876,8 +1235,6 @@ function VocabMaster() {
                     </div>
                   )}
                 </div>
-
-                {/* side-by-side comparison */}
                 <div className="write-grid" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px", marginBottom:"14px" }}>
                   <div style={{ background:"#111", border:"1px solid #1e1e1e", borderRadius:"10px", padding:"14px" }}>
                     <div style={{ fontSize:"10px", color:"#555", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:"8px" }}>Your sentence</div>
@@ -888,13 +1245,10 @@ function VocabMaster() {
                     <div style={{ fontSize:"14px", color:"#d4c9b8", lineHeight:"1.6", fontStyle:"italic" }}>"{current.example}"</div>
                   </div>
                 </div>
-
-                {/* self-grade */}
                 <div style={{ fontSize:"12px", color:"#555", marginBottom:"8px", textAlign:"center" }}>How did you do? (moves to next card)</div>
                 <div style={{ display:"flex", gap:"8px" }}>
                   {[["#4a8a5a","Nailed it","good"],["#a07840","Close enough","hard"],["#9e4a4a","Need more practice","again"]].map(([col,label,rating]) => (
-                    <button key={label}
-                      onClick={() => { rateSRS(rating); setWriteText(""); setWriteResult(null); }}
+                    <button key={label} onClick={() => { rateSRS(rating); setWriteText(""); setWriteResult(null); }}
                       style={{ flex:1, padding:"10px 6px", background:`${col}15`, border:`1px solid ${col}55`, borderRadius:"8px", color:col, fontSize:"12px", cursor:"pointer", fontFamily:"Georgia,serif", lineHeight:"1.3" }}>
                       {label}
                     </button>
@@ -905,7 +1259,7 @@ function VocabMaster() {
           </div>
         )}
 
-        {/* ── Navigation ── */}
+        {/* Navigation */}
         <div style={{ display:"flex", gap:"10px", marginTop:"26px", alignItems:"center" }}>
           <button className="nav-btn" onClick={prev} style={{ background:"#141414", border:"1px solid #242424", color:"#7a7060" }}>← Prev</button>
           <button className="nav-btn" onClick={markMastered}
