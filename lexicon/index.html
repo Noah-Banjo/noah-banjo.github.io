@@ -135,16 +135,9 @@ async function saveChallengeScore(playerName, score, timeSec) {
   if (!db || !playerName) return;
   try {
     const today = new Date().toISOString().slice(0, 10);
-    const docRef = db.collection("daily_challenge").doc(today);
-    const entry = { name: playerName, score, time: timeSec, done: true };
-    const updateData = {};
-    updateData[`scores.${playerName.toLowerCase()}`] = entry;
-    try {
-      await docRef.update(updateData);
-    } catch {
-      /* doc doesn't exist yet — create it */
-      await docRef.set({ scores: { [playerName.toLowerCase()]: entry } });
-    }
+    await db.collection("daily_challenge").doc(today)
+      .collection("scores").doc(playerName.toLowerCase())
+      .set({ name: playerName, score, time: timeSec, done: true });
   } catch(e) { console.warn("Challenge save failed:", e); }
 }
 
@@ -152,9 +145,11 @@ async function fetchChallengeScores() {
   if (!db) return {};
   try {
     const today = new Date().toISOString().slice(0, 10);
-    const doc = await db.collection("daily_challenge").doc(today).get();
-    if (!doc.exists) return {};
-    return doc.data().scores || {};
+    const snap = await db.collection("daily_challenge").doc(today)
+      .collection("scores").get();
+    const result = {};
+    snap.docs.forEach(d => { result[d.id] = d.data(); });
+    return result;
   } catch(e) { return {}; }
 }
 
