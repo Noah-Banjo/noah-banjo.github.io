@@ -135,11 +135,16 @@ async function saveChallengeScore(playerName, score, timeSec) {
   if (!db || !playerName) return;
   try {
     const today = new Date().toISOString().slice(0, 10);
-    const update = {};
-    update[`scores.${playerName.toLowerCase()}`] = {
-      name: playerName, score, time: timeSec, done: true
-    };
-    await db.collection("daily_challenge").doc(today).set(update, { merge: true });
+    const docRef = db.collection("daily_challenge").doc(today);
+    const entry = { name: playerName, score, time: timeSec, done: true };
+    const updateData = {};
+    updateData[`scores.${playerName.toLowerCase()}`] = entry;
+    try {
+      await docRef.update(updateData);
+    } catch {
+      /* doc doesn't exist yet — create it */
+      await docRef.set({ scores: { [playerName.toLowerCase()]: entry } });
+    }
   } catch(e) { console.warn("Challenge save failed:", e); }
 }
 
