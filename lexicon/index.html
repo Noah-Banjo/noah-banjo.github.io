@@ -434,18 +434,18 @@ function DailyChallenge({ words, playerName, onClose }) {
         /* finish */
         const finalScore = score + (selected === challengeWords[idx].definition ? 1 : 0);
         clearInterval(timerRef.current);
-        setSaving(true);
+        /* show own score immediately, no waiting */
+        const ownEntry = { name: playerName, score: finalScore, time: elapsed, done: true };
+        setScores({ [playerName.toLowerCase()]: ownEntry });
+        setScore(finalScore);
+        setDone(true);
+        /* save + fetch opponent in background */
         saveChallengeScore(playerName, finalScore, elapsed).then(() => {
           return fetchChallengeScores();
         }).then(s => {
-          /* always include own score even if Firestore hasn't propagated yet */
-          const merged = { ...s };
-          merged[playerName.toLowerCase()] = { name: playerName, score: finalScore, time: elapsed, done: true };
+          const merged = { ...s, [playerName.toLowerCase()]: ownEntry };
           setScores(merged);
-          setSaving(false);
-          setScore(finalScore);
-          setDone(true);
-        });
+        }).catch(() => {});
       } else {
         if (selected === challengeWords[idx].definition) setScore(s => s + 1);
         setIdx(i => i + 1);
