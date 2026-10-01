@@ -275,9 +275,9 @@ function PlayerSelect({ onSelect }) {
               style={{ padding:"20px", background:"#c8a96e10", border:"1px solid #c8a96e44", borderRadius:"12px", color:"#c8a96e", fontSize:"18px", cursor:"pointer", fontFamily:"Georgia,serif", transition:"all 0.15s" }}>
               Noah
             </button>
-            <button onClick={() => setStep("custom")}
+            <button onClick={() => { const p = { name: "Jomi" }; savePlayer(p); onSelect(p); }}
               style={{ padding:"20px", background:"#4a7a8a10", border:"1px solid #4a7a8a44", borderRadius:"12px", color:"#7aacba", fontSize:"18px", cursor:"pointer", fontFamily:"Georgia,serif", transition:"all 0.15s" }}>
-              My brother
+              Jomi
             </button>
           </div>
         )}
